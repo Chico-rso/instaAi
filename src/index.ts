@@ -69,7 +69,19 @@ async function main(): Promise<void> {
   });
 
   router.get("/robots.txt", (_request, response) => {
-    response.type("text/plain").send("User-agent: *\nAllow: /\n");
+    response.type("text/plain").send(
+      [
+        "User-agent: *",
+        "Disallow:",
+        "",
+        "User-agent: facebookexternalhit",
+        "Disallow:",
+        "",
+        "User-agent: Meta-ExternalAgent",
+        "Disallow:",
+        "",
+      ].join("\n"),
+    );
   });
 
   router.get("/auth/instagram/start", async (_request, response, next) => {
