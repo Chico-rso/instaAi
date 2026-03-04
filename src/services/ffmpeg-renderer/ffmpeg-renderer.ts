@@ -26,8 +26,8 @@ export class FfmpegRenderer {
     const backgroundFilter = [
       `drawbox=x='-220+mod(t*150\\,${template.resolution.width + 440})':y=150:w=420:h=420:color=${template.accentColor}@0.08:t=fill`,
       `drawbox=x='w-260-mod(t*110\\,${template.resolution.width + 320})':y=h-760:w=320:h=320:color=${template.accentColor}@0.12:t=fill`,
-      `drawbox=x=54:y=96:w=w-108:h=h-192:color=${template.panelColor}@0.40:t=fill`,
-      `drawbox=x=54:y=96:w=w-108:h=h-192:color=${template.accentColor}@0.14:t=8`,
+      `drawbox=x=54:y=96:w=iw-108:h=ih-192:color=${template.panelColor}@0.40:t=fill`,
+      `drawbox=x=54:y=96:w=iw-108:h=ih-192:color=${template.accentColor}@0.14:t=8`,
     ].join(",");
 
     await this.runFfmpeg([
@@ -60,8 +60,8 @@ export class FfmpegRenderer {
     await mkdir(jobDir, { recursive: true });
 
     const filterParts: string[] = [
-      `drawbox=x=72:y=1460:w=w-144:h=240:color=${template.panelColor}@0.58:t=fill`,
-      `drawbox=x=72:y=1460:w=w-144:h=240:color=${template.accentColor}@0.18:t=5`,
+      `drawbox=x=72:y=1460:w=iw-144:h=240:color=${template.panelColor}@0.58:t=fill`,
+      `drawbox=x=72:y=1460:w=iw-144:h=240:color=${template.accentColor}@0.18:t=5`,
     ];
 
     const escapedFontFile = this.escapeFilterValue(this.fontFile);
