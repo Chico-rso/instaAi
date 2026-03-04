@@ -68,6 +68,10 @@ async function main(): Promise<void> {
     });
   });
 
+  router.get("/robots.txt", (_request, response) => {
+    response.type("text/plain").send("User-agent: *\nAllow: /\n");
+  });
+
   router.get("/auth/instagram/start", async (_request, response, next) => {
     try {
       const authorizationUrl = instagramAuthService.getAuthorizationUrl();
