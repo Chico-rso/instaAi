@@ -1,0 +1,248 @@
+import { resolve } from "node:path";
+import { z } from "zod";
+
+const emptyToUndefined = (value: unknown): unknown => {
+  if (typeof value === "string" && value.trim() === "") {
+    return undefined;
+  }
+
+  return value;
+};
+
+const envBoolean = (defaultValue: boolean) =>
+  z.preprocess((value) => {
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (["1", "true", "yes", "on"].includes(normalized)) {
+        return true;
+      }
+
+      if (["0", "false", "no", "off"].includes(normalized)) {
+        return false;
+      }
+    }
+
+    return value;
+  }, z.boolean()).default(defaultValue);
+
+const envSchema = z.object({
+  PORT: z.coerce.number().int().positive().default(3000),
+  LOG_LEVEL: z.string().default("info"),
+  SCHEDULER_ENABLED: envBoolean(true),
+  CRON_SCHEDULE: z.string().default("0 */4 * * *"),
+  TIMEZONE: z.string().default("Europe/Moscow"),
+  MANUAL_TRIGGER_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
+  APP_BASE_PATH: z.string().default(""),
+  OUTBOUND_PROXY_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+
+  GLM_API_KEY: z.string().min(1),
+  GLM_API_BASE_URL: z.string().url().default("https://api.z.ai/api/paas/v4"),
+  GLM_MODEL: z.string().default("glm-5"),
+
+  TELEGRAM_MODE: z.enum(["polling", "webhook"]).default("polling"),
+  TELEGRAM_BOT_TOKEN: z.string().min(1),
+  TELEGRAM_CHANNEL: z.string().min(1),
+  TELEGRAM_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  PROCESS_ON_WEBHOOK: envBoolean(false),
+
+  INSTAGRAM_ENABLED: envBoolean(true),
+  INSTAGRAM_ACCESS_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
+  IG_USER_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  INSTAGRAM_API_VERSION: z.string().default("v24.0"),
+  INSTAGRAM_SHARE_TO_FEED: envBoolean(true),
+  INSTAGRAM_APP_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  INSTAGRAM_APP_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  INSTAGRAM_AUTH_MODE: z.enum(["facebook-login", "instagram-login"]).default("instagram-login"),
+  INSTAGRAM_GRAPH_BASE_URL: z.string().url().default("https://graph.instagram.com"),
+  INSTAGRAM_PROFILE_BASE_URL: z.string().url().default("https://graph.instagram.com"),
+  INSTAGRAM_AUTH_BASE_URL: z.string().url().default("https://www.instagram.com/oauth/authorize"),
+  INSTAGRAM_TOKEN_BASE_URL: z.string().url().default("https://api.instagram.com/oauth/access_token"),
+  INSTAGRAM_REDIRECT_URI: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  INSTAGRAM_SCOPES: z.string().default("instagram_business_basic,instagram_business_content_publish"),
+  INSTAGRAM_FORCE_REAUTH: envBoolean(true),
+
+  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  ARTIFACT_DIR: z.string().default("./data/artifacts"),
+  STATE_DIR: z.string().default("./data/state"),
+  PUBLIC_BASE_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+
+  S3_REGION: z.string().default("us-east-1"),
+  S3_ENDPOINT: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  S3_BUCKET: z.preprocess(emptyToUndefined, z.string().optional()),
+  S3_ACCESS_KEY_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  S3_SECRET_ACCESS_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  S3_FORCE_PATH_STYLE: envBoolean(false),
+  S3_PUBLIC_BASE_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+
+  REEL_TEMPLATE_FILE: z.string().default("./templates/reel-default-template.json"),
+  REEL_FONT_FILE: z.string().default("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+  REEL_FPS: z.coerce.number().int().positive().default(30),
+});
+
+export interface AppConfig {
+  port: number;
+  logLevel: string;
+  scheduler: {
+    enabled: boolean;
+    schedule: string;
+    timezone: string;
+  };
+  http: {
+    manualTriggerToken?: string;
+    basePath: string;
+    outboundProxyUrl?: string;
+  };
+  glm: {
+    apiKey: string;
+    baseUrl: string;
+    model: string;
+  };
+  telegram: {
+    mode: "polling" | "webhook";
+    botToken: string;
+    channel: string;
+    webhookSecret?: string;
+    processOnWebhook: boolean;
+  };
+  instagram: {
+    enabled: boolean;
+    accessToken?: string;
+    userId?: string;
+    apiVersion: string;
+    shareToFeed: boolean;
+    pollIntervalMs: number;
+    pollTimeoutMs: number;
+    appId?: string;
+    appSecret?: string;
+    authMode: "facebook-login" | "instagram-login";
+    graphBaseUrl: string;
+    profileBaseUrl: string;
+    authBaseUrl: string;
+    tokenBaseUrl: string;
+    redirectUri?: string;
+    scopes: string[];
+    forceReauth: boolean;
+  };
+  storage: {
+    driver: "local" | "s3";
+    artifactDir: string;
+    stateDir: string;
+    publicBaseUrl?: string;
+    s3?: {
+      region: string;
+      endpoint?: string;
+      bucket: string;
+      accessKeyId: string;
+      secretAccessKey: string;
+      forcePathStyle: boolean;
+      publicBaseUrl: string;
+    };
+  };
+  reel: {
+    templateFile: string;
+    fontFile: string;
+    fps: number;
+  };
+}
+
+export function loadConfig(): AppConfig {
+  const parsed = envSchema.parse(process.env);
+
+  if (parsed.STORAGE_DRIVER === "local" && parsed.INSTAGRAM_ENABLED && !parsed.PUBLIC_BASE_URL) {
+    throw new Error("Local storage publishing requires PUBLIC_BASE_URL so Instagram can fetch rendered videos.");
+  }
+
+  if (parsed.STORAGE_DRIVER === "s3") {
+    if (
+      !parsed.S3_BUCKET ||
+      !parsed.S3_ACCESS_KEY_ID ||
+      !parsed.S3_SECRET_ACCESS_KEY ||
+      !parsed.S3_PUBLIC_BASE_URL
+    ) {
+      throw new Error("S3 storage requires S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, and S3_PUBLIC_BASE_URL.");
+    }
+  }
+
+  return {
+    port: parsed.PORT,
+    logLevel: parsed.LOG_LEVEL,
+    scheduler: {
+      enabled: parsed.SCHEDULER_ENABLED,
+      schedule: parsed.CRON_SCHEDULE,
+      timezone: parsed.TIMEZONE,
+    },
+    http: {
+      manualTriggerToken: parsed.MANUAL_TRIGGER_TOKEN,
+      basePath: normalizeBasePath(parsed.APP_BASE_PATH),
+      outboundProxyUrl: parsed.OUTBOUND_PROXY_URL,
+    },
+    glm: {
+      apiKey: parsed.GLM_API_KEY,
+      baseUrl: parsed.GLM_API_BASE_URL.replace(/\/$/, ""),
+      model: parsed.GLM_MODEL,
+    },
+    telegram: {
+      mode: parsed.TELEGRAM_MODE,
+      botToken: parsed.TELEGRAM_BOT_TOKEN,
+      channel: parsed.TELEGRAM_CHANNEL,
+      webhookSecret: parsed.TELEGRAM_WEBHOOK_SECRET,
+      processOnWebhook: parsed.PROCESS_ON_WEBHOOK,
+    },
+    instagram: {
+      enabled: parsed.INSTAGRAM_ENABLED,
+      accessToken: parsed.INSTAGRAM_ACCESS_TOKEN,
+      userId: parsed.IG_USER_ID,
+      apiVersion: parsed.INSTAGRAM_API_VERSION,
+      shareToFeed: parsed.INSTAGRAM_SHARE_TO_FEED,
+      pollIntervalMs: 10_000,
+      pollTimeoutMs: 10 * 60_000,
+      appId: parsed.INSTAGRAM_APP_ID,
+      appSecret: parsed.INSTAGRAM_APP_SECRET,
+      authMode: parsed.INSTAGRAM_AUTH_MODE,
+      graphBaseUrl: parsed.INSTAGRAM_GRAPH_BASE_URL.replace(/\/$/, ""),
+      profileBaseUrl: parsed.INSTAGRAM_PROFILE_BASE_URL.replace(/\/$/, ""),
+      authBaseUrl: parsed.INSTAGRAM_AUTH_BASE_URL.replace(/\/$/, ""),
+      tokenBaseUrl: parsed.INSTAGRAM_TOKEN_BASE_URL,
+      redirectUri: parsed.INSTAGRAM_REDIRECT_URI,
+      scopes: parsed.INSTAGRAM_SCOPES.split(",").map((item) => item.trim()).filter(Boolean),
+      forceReauth: parsed.INSTAGRAM_FORCE_REAUTH,
+    },
+    storage: {
+      driver: parsed.STORAGE_DRIVER,
+      artifactDir: resolve(parsed.ARTIFACT_DIR),
+      stateDir: resolve(parsed.STATE_DIR),
+      publicBaseUrl: parsed.PUBLIC_BASE_URL,
+      s3:
+        parsed.STORAGE_DRIVER === "s3"
+          ? {
+              region: parsed.S3_REGION,
+              endpoint: parsed.S3_ENDPOINT || undefined,
+              bucket: parsed.S3_BUCKET as string,
+              accessKeyId: parsed.S3_ACCESS_KEY_ID as string,
+              secretAccessKey: parsed.S3_SECRET_ACCESS_KEY as string,
+              forcePathStyle: parsed.S3_FORCE_PATH_STYLE,
+              publicBaseUrl: parsed.S3_PUBLIC_BASE_URL as string,
+            }
+          : undefined,
+    },
+    reel: {
+      templateFile: resolve(parsed.REEL_TEMPLATE_FILE),
+      fontFile: resolve(parsed.REEL_FONT_FILE),
+      fps: parsed.REEL_FPS,
+    },
+  };
+}
+
+function normalizeBasePath(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "/") {
+    return "";
+  }
+
+  const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.replace(/\/+$/, "");
+}

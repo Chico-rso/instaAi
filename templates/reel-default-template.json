@@ -1,0 +1,19 @@
+{
+  "name": "clean-grid",
+  "resolution": {
+    "width": 1080,
+    "height": 1920
+  },
+  "fps": 30,
+  "backgroundColor": "0x08111F",
+  "panelColor": "0x101C2F",
+  "accentColor": "0x2DD4BF",
+  "textColor": "0xF8FAFC",
+  "mutedTextColor": "0xCBD5E1",
+  "safeMargin": 72,
+  "titleFontSize": 84,
+  "bodyFontSize": 54,
+  "titleY": 170,
+  "bodyY": 430,
+  "bodyLineWidth": 24
+}
