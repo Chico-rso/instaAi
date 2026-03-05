@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { AppConfig } from "../../config/env";
 import { ReelScript, ReelTemplate, RenderedReel, TimedReelScene } from "../../types";
 import { FfmpegRenderer } from "../../services/ffmpeg-renderer/ffmpeg-renderer";
-import { HeygenClient } from "../../services/heygen-client";
 import { PikaClient } from "../../services/pika-client";
 import { AppLogger } from "../../services/logger";
 
@@ -13,25 +12,10 @@ export class VideoGenerator {
     private readonly config: AppConfig,
     private readonly ffmpegRenderer: FfmpegRenderer,
     private readonly logger: AppLogger,
-    private readonly heygenClient?: HeygenClient,
     private readonly pikaClient?: PikaClient,
   ) {}
 
   async generate(jobId: string, reelScript: ReelScript): Promise<RenderedReel> {
-    if (this.config.video.provider === "heygen" && this.config.heygen.enabled && this.heygenClient) {
-      try {
-        return await this.generateWithHeygen(jobId, reelScript);
-      } catch (error) {
-        this.logger.warn(
-          {
-            jobId,
-            error: error instanceof Error ? error.message : String(error),
-          },
-          "HeyGen generation failed; falling back to FFmpeg text template",
-        );
-      }
-    }
-
     if (this.config.video.provider === "pika" && this.pikaClient) {
       try {
         return await this.generateWithPika(jobId, reelScript);
@@ -41,22 +25,8 @@ export class VideoGenerator {
             jobId,
             error: error instanceof Error ? error.message : String(error),
           },
-          "Pika generation failed; trying HeyGen fallback or FFmpeg template",
+          "Pika generation failed; falling back to FFmpeg text template",
         );
-
-        if (this.config.heygen.apiKey && this.heygenClient) {
-          try {
-            return await this.generateWithHeygen(jobId, reelScript);
-          } catch (heygenError) {
-            this.logger.warn(
-              {
-                jobId,
-                error: heygenError instanceof Error ? heygenError.message : String(heygenError),
-              },
-              "HeyGen fallback after Pika failure also failed; using FFmpeg text template",
-            );
-          }
-        }
       }
     }
 
@@ -95,40 +65,6 @@ export class VideoGenerator {
     };
   }
 
-  private async generateWithHeygen(jobId: string, reelScript: ReelScript): Promise<RenderedReel> {
-    const renderDir = join(this.config.storage.artifactDir, "jobs", jobId, "render");
-    await mkdir(renderDir, { recursive: true });
-
-    const rawAvatarPath = join(renderDir, "heygen-raw.mp4");
-    const videoPath = join(renderDir, "reel.mp4");
-    const thumbnailPath = join(renderDir, "cover.jpg");
-
-    const videoId = await this.heygenClient!.generateTalkingAvatarVideo(this.buildNarration(reelScript));
-    const completed = await this.heygenClient!.waitForCompletion(videoId);
-
-    await this.heygenClient!.downloadVideo(completed.videoUrl, rawAvatarPath);
-    await this.ffmpegRenderer.normalizeVideoForReels(
-      rawAvatarPath,
-      videoPath,
-      this.config.heygen.width,
-      this.config.heygen.height,
-      this.config.reel.fps,
-      {
-        topTitle: reelScript.title,
-        bottomText: reelScript.ctaText,
-        durationSec: reelScript.totalDurationSec,
-      },
-    );
-    await this.ffmpegRenderer.extractThumbnail(videoPath, thumbnailPath);
-
-    return {
-      templatePath: rawAvatarPath,
-      videoPath,
-      thumbnailPath,
-      totalDurationSec: reelScript.totalDurationSec,
-    };
-  }
-
   private async generateWithPika(jobId: string, reelScript: ReelScript): Promise<RenderedReel> {
     const renderDir = join(this.config.storage.artifactDir, "jobs", jobId, "render");
     await mkdir(renderDir, { recursive: true });
@@ -144,8 +80,8 @@ export class VideoGenerator {
     await this.ffmpegRenderer.normalizeVideoForReels(
       rawVideoPath,
       videoPath,
-      this.config.heygen.width,
-      this.config.heygen.height,
+      this.config.reel.width,
+      this.config.reel.height,
       this.config.reel.fps,
       {
         topTitle: reelScript.title,

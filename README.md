@@ -2,7 +2,7 @@
 
 Production-oriented Node.js + TypeScript service that turns Telegram AI posts into Instagram Reels:
 
-`Telegram channel post -> GLM-5 viral script -> Pika/HeyGen/FFmpeg render -> caption -> Telegram delivery and/or Instagram publish`
+`Telegram channel post -> GLM-5 viral script -> Pika/FFmpeg render -> caption -> Telegram delivery and/or Instagram publish`
 
 ## What It Does
 
@@ -11,11 +11,10 @@ Production-oriented Node.js + TypeScript service that turns Telegram AI posts in
 - Converts that content into a short viral Reel script with structure: `hook -> setup -> escalation -> twist`.
 - Renders a 1080x1920 MP4 using selectable providers:
   - `pika` (Fal queue API model)
-  - `heygen` (talking avatar)
   - `template` (FFmpeg text-overlay fallback)
 - Creates an Instagram caption with hashtags.
 - Sends the generated Reel to Telegram (video + caption) for manual Instagram upload workflow.
-- Generates a text-to-video prompt (`aiVideoPrompt`) for visual generators.
+- Generates a text-to-video prompt (`aiVideoPrompt`) for Pika.
 - Automatic fallback to FFmpeg template mode if external video provider fails.
 - Publishes the final Reel through the Instagram Graph API.
 - Supports cron-based scheduling, retries, structured logging, webhook ingestion, and a manual trigger endpoint.
@@ -153,24 +152,6 @@ INSTAGRAM_SCOPES=instagram_business_basic,instagram_business_content_publish
 
 - Set `INSTAGRAM_ENABLED=false` to use Telegram-only delivery mode.
 
-### HeyGen Avatar (Optional)
-
-```env
-HEYGEN_ENABLED=false
-HEYGEN_API_KEY=
-HEYGEN_BASE_URL=https://api.heygen.com
-HEYGEN_AVATAR_ID=Angela_inblackdress
-HEYGEN_VOICE_ID=2d5b0e6cf36f460aa7fc47e3eee4ba54
-HEYGEN_AVATAR_STYLE=normal
-HEYGEN_BACKGROUND_COLOR=#F6F6FC
-HEYGEN_DIMENSION_WIDTH=1080
-HEYGEN_DIMENSION_HEIGHT=1920
-HEYGEN_POLL_INTERVAL_MS=5000
-HEYGEN_POLL_TIMEOUT_MS=480000
-```
-
-- `HEYGEN_ENABLED` is kept for backward compatibility. Use `VIDEO_PROVIDER=heygen` for explicit provider selection.
-
 ### Video Provider
 
 ```env
@@ -178,7 +159,6 @@ VIDEO_PROVIDER=template
 ```
 
 - `template`: default FFmpeg text-overlay rendering.
-- `heygen`: talking avatar mode (`HEYGEN_API_KEY` required).
 - `pika`: text-to-video mode via Fal queue API (`PIKA_API_KEY` required).
 
 ### Pika (Fal Queue API)

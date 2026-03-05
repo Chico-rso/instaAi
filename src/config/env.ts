@@ -68,19 +68,7 @@ const envSchema = z.object({
   INSTAGRAM_SCOPES: z.string().default("instagram_business_basic,instagram_business_content_publish"),
   INSTAGRAM_FORCE_REAUTH: envBoolean(true),
 
-  VIDEO_PROVIDER: z.enum(["template", "heygen", "pika"]).default("template"),
-
-  HEYGEN_ENABLED: envBoolean(false),
-  HEYGEN_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
-  HEYGEN_BASE_URL: z.string().url().default("https://api.heygen.com"),
-  HEYGEN_AVATAR_ID: z.string().default("Angela_inblackdress"),
-  HEYGEN_VOICE_ID: z.string().default("2d5b0e6cf36f460aa7fc47e3eee4ba54"),
-  HEYGEN_AVATAR_STYLE: z.string().default("normal"),
-  HEYGEN_BACKGROUND_COLOR: z.string().default("#F6F6FC"),
-  HEYGEN_DIMENSION_WIDTH: z.coerce.number().int().positive().default(1080),
-  HEYGEN_DIMENSION_HEIGHT: z.coerce.number().int().positive().default(1920),
-  HEYGEN_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
-  HEYGEN_POLL_TIMEOUT_MS: z.coerce.number().int().positive().default(8 * 60_000),
+  VIDEO_PROVIDER: z.enum(["template", "pika"]).default("template"),
 
   PIKA_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   PIKA_BASE_URL: z.string().url().default("https://queue.fal.run"),
@@ -107,6 +95,8 @@ const envSchema = z.object({
   REEL_TEMPLATE_FILE: z.string().default("./templates/reel-default-template.json"),
   REEL_FONT_FILE: z.string().default("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
   REEL_FPS: z.coerce.number().int().positive().default(30),
+  REEL_WIDTH: z.coerce.number().int().positive().default(1080),
+  REEL_HEIGHT: z.coerce.number().int().positive().default(1920),
 });
 
 export interface AppConfig {
@@ -157,20 +147,7 @@ export interface AppConfig {
     forceReauth: boolean;
   };
   video: {
-    provider: "template" | "heygen" | "pika";
-  };
-  heygen: {
-    enabled: boolean;
-    apiKey?: string;
-    baseUrl: string;
-    avatarId: string;
-    voiceId: string;
-    avatarStyle: string;
-    backgroundColor: string;
-    width: number;
-    height: number;
-    pollIntervalMs: number;
-    pollTimeoutMs: number;
+    provider: "template" | "pika";
   };
   pika: {
     apiKey?: string;
@@ -201,22 +178,17 @@ export interface AppConfig {
     templateFile: string;
     fontFile: string;
     fps: number;
+    width: number;
+    height: number;
   };
 }
 
 export function loadConfig(): AppConfig {
   const parsed = envSchema.parse(process.env);
-  const resolvedVideoProvider =
-    parsed.VIDEO_PROVIDER === "template" && parsed.HEYGEN_ENABLED
-      ? "heygen"
-      : parsed.VIDEO_PROVIDER;
+  const resolvedVideoProvider = parsed.VIDEO_PROVIDER;
 
   if (parsed.STORAGE_DRIVER === "local" && parsed.INSTAGRAM_ENABLED && !parsed.PUBLIC_BASE_URL) {
     throw new Error("Local storage publishing requires PUBLIC_BASE_URL so Instagram can fetch rendered videos.");
-  }
-
-  if (resolvedVideoProvider === "heygen" && !parsed.HEYGEN_API_KEY) {
-    throw new Error("VIDEO_PROVIDER=heygen requires HEYGEN_API_KEY.");
   }
 
   if (resolvedVideoProvider === "pika" && !parsed.PIKA_API_KEY) {
@@ -284,19 +256,6 @@ export function loadConfig(): AppConfig {
     video: {
       provider: resolvedVideoProvider,
     },
-    heygen: {
-      enabled: resolvedVideoProvider === "heygen",
-      apiKey: parsed.HEYGEN_API_KEY,
-      baseUrl: parsed.HEYGEN_BASE_URL.replace(/\/$/, ""),
-      avatarId: parsed.HEYGEN_AVATAR_ID,
-      voiceId: parsed.HEYGEN_VOICE_ID,
-      avatarStyle: parsed.HEYGEN_AVATAR_STYLE,
-      backgroundColor: parsed.HEYGEN_BACKGROUND_COLOR,
-      width: parsed.HEYGEN_DIMENSION_WIDTH,
-      height: parsed.HEYGEN_DIMENSION_HEIGHT,
-      pollIntervalMs: parsed.HEYGEN_POLL_INTERVAL_MS,
-      pollTimeoutMs: parsed.HEYGEN_POLL_TIMEOUT_MS,
-    },
     pika: {
       apiKey: parsed.PIKA_API_KEY,
       baseUrl: parsed.PIKA_BASE_URL.replace(/\/$/, ""),
@@ -329,6 +288,8 @@ export function loadConfig(): AppConfig {
       templateFile: resolve(parsed.REEL_TEMPLATE_FILE),
       fontFile: resolve(parsed.REEL_FONT_FILE),
       fps: parsed.REEL_FPS,
+      width: parsed.REEL_WIDTH,
+      height: parsed.REEL_HEIGHT,
     },
   };
 }
