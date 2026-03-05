@@ -147,7 +147,11 @@ export class HeygenClient {
 
         const raw = await response.text();
         if (!response.ok) {
-          throw new HeygenApiError("HeyGen API request failed.", response.status, raw);
+          throw new HeygenApiError(
+            `HeyGen API request failed with status ${response.status}: ${raw}`,
+            response.status,
+            raw,
+          );
         }
 
         const parsed = JSON.parse(raw) as T;
