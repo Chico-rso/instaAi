@@ -179,13 +179,10 @@ export class FfmpegRenderer {
       currentLabel = "v5";
     }
 
-    if (options?.durationSec && options.durationSec > 0) {
-      const total = formatSeconds(options.durationSec);
-      filterParts.push(
-        `[${currentLabel}]drawbox=x=80:y=${height - 40}:w='(w-160)*min(max(t/${total}\\,0)\\,1)':h=10:color=0x2DD4BF@0.90:t=fill[v6]`,
-      );
-      currentLabel = "v6";
-    }
+    filterParts.push(
+      `[${currentLabel}]drawbox=x=80:y=${height - 40}:w=${width - 160}:h=10:color=0x2DD4BF@0.90:t=fill[v6]`,
+    );
+    currentLabel = "v6";
 
     filterParts.push(`[${currentLabel}]format=yuv420p[vout]`);
 
