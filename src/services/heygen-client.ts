@@ -65,7 +65,9 @@ export class HeygenClient {
           },
           background: {
             type: "color",
-            value: this.config.backgroundColor,
+            color: {
+              value: this.config.backgroundColor,
+            },
           },
         },
       ],
