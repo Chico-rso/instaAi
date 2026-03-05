@@ -75,6 +75,9 @@ export interface JobRecord {
   reelThumbnailUrl?: string;
   instagramMediaId?: string;
   instagramContainerId?: string;
+  telegramDeliveryChatId?: string;
+  telegramVideoMessageId?: number;
+  telegramCaptionMessageId?: number;
   captionPreview?: string;
 }
 

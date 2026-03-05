@@ -7,6 +7,7 @@ import { loadConfig } from "./config/env";
 import { CaptionGenerator } from "./modules/caption-generator/caption-generator";
 import { InstagramPublisher } from "./modules/instagram-publisher/instagram-publisher";
 import { ScriptGenerator } from "./modules/script-generator/script-generator";
+import { TelegramPublisher } from "./modules/telegram-publisher/telegram-publisher";
 import { VideoGenerator } from "./modules/video-generator/video-generator";
 import { GlmClient } from "./services/ai-client/glm-client";
 import { FfmpegRenderer } from "./services/ffmpeg-renderer/ffmpeg-renderer";
@@ -33,6 +34,9 @@ async function main(): Promise<void> {
   const scriptGenerator = new ScriptGenerator(glmClient, logger);
   const captionGenerator = new CaptionGenerator(glmClient, logger);
   const videoGenerator = new VideoGenerator(config, ffmpegRenderer);
+  const telegramPublisher = config.telegram.deliveryEnabled
+    ? new TelegramPublisher(config.telegram, logger)
+    : undefined;
   const instagramPublisher = config.instagram.enabled
     ? new InstagramPublisher(config.instagram, logger, instagramAuthStore)
     : undefined;
@@ -50,6 +54,7 @@ async function main(): Promise<void> {
     captionGenerator,
     storageService,
     logger,
+    telegramPublisher,
     instagramPublisher,
   );
 

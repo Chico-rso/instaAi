@@ -48,6 +48,9 @@ const envSchema = z.object({
   TELEGRAM_CHANNEL: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
   PROCESS_ON_WEBHOOK: envBoolean(false),
+  TELEGRAM_DELIVERY_ENABLED: envBoolean(true),
+  TELEGRAM_DELIVERY_CHAT_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  TELEGRAM_DELIVERY_DISABLE_NOTIFICATION: envBoolean(false),
 
   INSTAGRAM_ENABLED: envBoolean(true),
   INSTAGRAM_ACCESS_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
@@ -107,6 +110,9 @@ export interface AppConfig {
     channel: string;
     webhookSecret?: string;
     processOnWebhook: boolean;
+    deliveryEnabled: boolean;
+    deliveryChatId?: string;
+    deliveryDisableNotification: boolean;
   };
   instagram: {
     enabled: boolean;
@@ -191,6 +197,9 @@ export function loadConfig(): AppConfig {
       channel: parsed.TELEGRAM_CHANNEL,
       webhookSecret: parsed.TELEGRAM_WEBHOOK_SECRET,
       processOnWebhook: parsed.PROCESS_ON_WEBHOOK,
+      deliveryEnabled: parsed.TELEGRAM_DELIVERY_ENABLED,
+      deliveryChatId: parsed.TELEGRAM_DELIVERY_CHAT_ID,
+      deliveryDisableNotification: parsed.TELEGRAM_DELIVERY_DISABLE_NOTIFICATION,
     },
     instagram: {
       enabled: parsed.INSTAGRAM_ENABLED,

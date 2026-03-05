@@ -2,7 +2,7 @@
 
 Production-oriented Node.js + TypeScript service that turns Telegram AI posts into Instagram Reels:
 
-`Telegram channel post -> GLM-5 script -> FFmpeg render -> caption -> Instagram Graph API publish`
+`Telegram channel post -> GLM-5 script -> FFmpeg render -> caption -> Telegram delivery and/or Instagram publish`
 
 ## What It Does
 
@@ -11,6 +11,7 @@ Production-oriented Node.js + TypeScript service that turns Telegram AI posts in
 - Converts that content into a five-scene Reel script.
 - Renders a 1080x1920 MP4 using FFmpeg text overlays on a generated vertical background template.
 - Creates an Instagram caption with hashtags.
+- Sends the generated Reel to Telegram (video + caption) for manual Instagram upload workflow.
 - Publishes the final Reel through the Instagram Graph API.
 - Supports cron-based scheduling, retries, structured logging, webhook ingestion, and a manual trigger endpoint.
 
@@ -116,7 +117,12 @@ OUTBOUND_PROXY_URL=
 TELEGRAM_MODE=polling
 TELEGRAM_WEBHOOK_SECRET=
 PROCESS_ON_WEBHOOK=false
+TELEGRAM_DELIVERY_ENABLED=true
+TELEGRAM_DELIVERY_CHAT_ID=
+TELEGRAM_DELIVERY_DISABLE_NOTIFICATION=false
 ```
+
+- `TELEGRAM_DELIVERY_CHAT_ID` is optional; if empty, the bot sends to `TELEGRAM_CHANNEL`.
 
 ### GLM-5
 
@@ -139,6 +145,8 @@ INSTAGRAM_AUTH_MODE=instagram-login
 INSTAGRAM_REDIRECT_URI=
 INSTAGRAM_SCOPES=instagram_business_basic,instagram_business_content_publish
 ```
+
+- Set `INSTAGRAM_ENABLED=false` to use Telegram-only delivery mode.
 
 ### Storage
 

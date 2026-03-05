@@ -4,6 +4,7 @@ import { AppConfig } from "../config/env";
 import { CaptionGenerator } from "../modules/caption-generator/caption-generator";
 import { InstagramPublisher } from "../modules/instagram-publisher/instagram-publisher";
 import { ScriptGenerator } from "../modules/script-generator/script-generator";
+import { TelegramPublisher } from "../modules/telegram-publisher/telegram-publisher";
 import { VideoGenerator } from "../modules/video-generator/video-generator";
 import { JobRecord } from "../types";
 import { truncate } from "../utils/strings";
@@ -24,6 +25,7 @@ export class PipelineOrchestrator {
     private readonly captionGenerator: CaptionGenerator,
     private readonly storageService: StorageService,
     private readonly logger: AppLogger,
+    private readonly telegramPublisher?: TelegramPublisher,
     private readonly instagramPublisher?: InstagramPublisher,
   ) {}
 
@@ -117,6 +119,29 @@ export class PipelineOrchestrator {
 
       let instagramMediaId: string | undefined;
       let instagramContainerId: string | undefined;
+      let telegramDeliveryChatId: string | undefined;
+      let telegramVideoMessageId: number | undefined;
+      let telegramCaptionMessageId: number | undefined;
+
+      if (this.config.telegram.deliveryEnabled) {
+        if (!this.telegramPublisher) {
+          throw new Error("Telegram delivery is enabled but publisher service is missing.");
+        }
+
+        if (!storedVideo.publicUrl) {
+          throw new Error("Rendered Reel does not have a public URL for Telegram delivery.");
+        }
+
+        const delivered = await this.telegramPublisher.deliverReel({
+          videoUrl: storedVideo.publicUrl,
+          caption: captionPayload.caption,
+          hashtags: captionPayload.hashtags,
+          sourcePermalink: latestPost.permalink,
+        });
+        telegramDeliveryChatId = delivered.chatId;
+        telegramVideoMessageId = delivered.videoMessageId;
+        telegramCaptionMessageId = delivered.captionMessageId;
+      }
 
       if (this.config.instagram.enabled) {
         if (!this.instagramPublisher) {
@@ -152,6 +177,9 @@ export class PipelineOrchestrator {
         reelVideoUrl: storedVideo.publicUrl,
         reelThumbnailUrl: storedThumbnail.publicUrl,
         captionPreview: truncate(captionPayload.caption, 400),
+        telegramDeliveryChatId,
+        telegramVideoMessageId,
+        telegramCaptionMessageId,
         instagramMediaId,
         instagramContainerId,
       })) as JobRecord;
