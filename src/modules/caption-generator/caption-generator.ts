@@ -46,7 +46,7 @@ export class CaptionGenerator {
         0.6,
       );
 
-      const hashtags = (response.hashtags ?? fallback.hashtags)
+      const hashtags = normalizeHashtagList(response.hashtags, fallback.hashtags)
         .map(normalizeHashtag)
         .filter(Boolean)
         .slice(0, 8);
@@ -94,4 +94,16 @@ export class CaptionGenerator {
       firstComment,
     };
   }
+}
+
+function normalizeHashtagList(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item));
+  }
+
+  if (typeof value === "string") {
+    return value.split(/[,\s]+/).map((item) => item.trim()).filter(Boolean);
+  }
+
+  return fallback;
 }

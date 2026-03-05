@@ -124,6 +124,42 @@ export class FfmpegRenderer {
     ]);
   }
 
+  async normalizeVideoForReels(
+    inputPath: string,
+    outputPath: string,
+    width: number,
+    height: number,
+    fps: number,
+  ): Promise<void> {
+    await mkdir(dirname(outputPath), { recursive: true });
+
+    const scaleAndPadFilter = [
+      `scale='if(gt(a,${width}/${height}),${width},-2)':'if(gt(a,${width}/${height}),-2,${height})'`,
+      `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black`,
+      "format=yuv420p",
+    ].join(",");
+
+    await this.runFfmpeg([
+      "-y",
+      "-i",
+      inputPath,
+      "-vf",
+      scaleAndPadFilter,
+      "-r",
+      String(fps),
+      "-an",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "20",
+      "-movflags",
+      "+faststart",
+      outputPath,
+    ]);
+  }
+
   private escapeFilterValue(value: string): string {
     return value
       .replace(/\\/g, "\\\\")

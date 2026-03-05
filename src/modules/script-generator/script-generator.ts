@@ -260,7 +260,7 @@ export class ScriptGenerator {
       };
     });
 
-    const hashtags = (payload.hashtags ?? fallback.hashtags)
+    const hashtags = normalizeHashtagList(payload.hashtags, fallback.hashtags)
       .map(normalizeHashtag)
       .filter(Boolean)
       .slice(0, 6);
@@ -293,4 +293,16 @@ export class ScriptGenerator {
 
     return "explanation";
   }
+}
+
+function normalizeHashtagList(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item));
+  }
+
+  if (typeof value === "string") {
+    return value.split(/[,\s]+/).map((item) => item.trim()).filter(Boolean);
+  }
+
+  return fallback;
 }

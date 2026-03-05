@@ -68,6 +68,18 @@ const envSchema = z.object({
   INSTAGRAM_SCOPES: z.string().default("instagram_business_basic,instagram_business_content_publish"),
   INSTAGRAM_FORCE_REAUTH: envBoolean(true),
 
+  HEYGEN_ENABLED: envBoolean(false),
+  HEYGEN_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  HEYGEN_BASE_URL: z.string().url().default("https://api.heygen.com"),
+  HEYGEN_AVATAR_ID: z.string().default("Angela_inblackdress"),
+  HEYGEN_VOICE_ID: z.string().default("2d5b0e6cf36f460aa7fc47e3eee4ba54"),
+  HEYGEN_AVATAR_STYLE: z.string().default("normal"),
+  HEYGEN_BACKGROUND_COLOR: z.string().default("#F6F6FC"),
+  HEYGEN_DIMENSION_WIDTH: z.coerce.number().int().positive().default(1080),
+  HEYGEN_DIMENSION_HEIGHT: z.coerce.number().int().positive().default(1920),
+  HEYGEN_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  HEYGEN_POLL_TIMEOUT_MS: z.coerce.number().int().positive().default(8 * 60_000),
+
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   ARTIFACT_DIR: z.string().default("./data/artifacts"),
   STATE_DIR: z.string().default("./data/state"),
@@ -133,6 +145,19 @@ export interface AppConfig {
     scopes: string[];
     forceReauth: boolean;
   };
+  heygen: {
+    enabled: boolean;
+    apiKey?: string;
+    baseUrl: string;
+    avatarId: string;
+    voiceId: string;
+    avatarStyle: string;
+    backgroundColor: string;
+    width: number;
+    height: number;
+    pollIntervalMs: number;
+    pollTimeoutMs: number;
+  };
   storage: {
     driver: "local" | "s3";
     artifactDir: string;
@@ -160,6 +185,10 @@ export function loadConfig(): AppConfig {
 
   if (parsed.STORAGE_DRIVER === "local" && parsed.INSTAGRAM_ENABLED && !parsed.PUBLIC_BASE_URL) {
     throw new Error("Local storage publishing requires PUBLIC_BASE_URL so Instagram can fetch rendered videos.");
+  }
+
+  if (parsed.HEYGEN_ENABLED && !parsed.HEYGEN_API_KEY) {
+    throw new Error("HEYGEN_ENABLED=true requires HEYGEN_API_KEY.");
   }
 
   if (parsed.STORAGE_DRIVER === "s3") {
@@ -219,6 +248,19 @@ export function loadConfig(): AppConfig {
       redirectUri: parsed.INSTAGRAM_REDIRECT_URI,
       scopes: parsed.INSTAGRAM_SCOPES.split(",").map((item) => item.trim()).filter(Boolean),
       forceReauth: parsed.INSTAGRAM_FORCE_REAUTH,
+    },
+    heygen: {
+      enabled: parsed.HEYGEN_ENABLED,
+      apiKey: parsed.HEYGEN_API_KEY,
+      baseUrl: parsed.HEYGEN_BASE_URL.replace(/\/$/, ""),
+      avatarId: parsed.HEYGEN_AVATAR_ID,
+      voiceId: parsed.HEYGEN_VOICE_ID,
+      avatarStyle: parsed.HEYGEN_AVATAR_STYLE,
+      backgroundColor: parsed.HEYGEN_BACKGROUND_COLOR,
+      width: parsed.HEYGEN_DIMENSION_WIDTH,
+      height: parsed.HEYGEN_DIMENSION_HEIGHT,
+      pollIntervalMs: parsed.HEYGEN_POLL_INTERVAL_MS,
+      pollTimeoutMs: parsed.HEYGEN_POLL_TIMEOUT_MS,
     },
     storage: {
       driver: parsed.STORAGE_DRIVER,

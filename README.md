@@ -12,6 +12,7 @@ Production-oriented Node.js + TypeScript service that turns Telegram AI posts in
 - Renders a 1080x1920 MP4 using FFmpeg text overlays on a generated vertical background template.
 - Creates an Instagram caption with hashtags.
 - Sends the generated Reel to Telegram (video + caption) for manual Instagram upload workflow.
+- Optional: generates a talking-avatar Reel through HeyGen API (with automatic fallback to FFmpeg text template).
 - Publishes the final Reel through the Instagram Graph API.
 - Supports cron-based scheduling, retries, structured logging, webhook ingestion, and a manual trigger endpoint.
 
@@ -147,6 +148,25 @@ INSTAGRAM_SCOPES=instagram_business_basic,instagram_business_content_publish
 ```
 
 - Set `INSTAGRAM_ENABLED=false` to use Telegram-only delivery mode.
+
+### HeyGen Avatar (Optional)
+
+```env
+HEYGEN_ENABLED=false
+HEYGEN_API_KEY=
+HEYGEN_BASE_URL=https://api.heygen.com
+HEYGEN_AVATAR_ID=Angela_inblackdress
+HEYGEN_VOICE_ID=2d5b0e6cf36f460aa7fc47e3eee4ba54
+HEYGEN_AVATAR_STYLE=normal
+HEYGEN_BACKGROUND_COLOR=#F6F6FC
+HEYGEN_DIMENSION_WIDTH=1080
+HEYGEN_DIMENSION_HEIGHT=1920
+HEYGEN_POLL_INTERVAL_MS=5000
+HEYGEN_POLL_TIMEOUT_MS=480000
+```
+
+- Set `HEYGEN_ENABLED=true` and provide `HEYGEN_API_KEY` to generate avatar videos.
+- If HeyGen fails (quota, API errors, timeouts), the pipeline automatically falls back to FFmpeg text-template mode.
 
 ### Storage
 

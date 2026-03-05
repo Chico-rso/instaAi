@@ -11,6 +11,7 @@ import { TelegramPublisher } from "./modules/telegram-publisher/telegram-publish
 import { VideoGenerator } from "./modules/video-generator/video-generator";
 import { GlmClient } from "./services/ai-client/glm-client";
 import { FfmpegRenderer } from "./services/ffmpeg-renderer/ffmpeg-renderer";
+import { HeygenClient } from "./services/heygen-client";
 import { configureHttpClient } from "./services/http-client";
 import { InstagramAuthService } from "./services/instagram-auth-service";
 import { InstagramAuthStore } from "./services/instagram-auth-store";
@@ -30,10 +31,13 @@ async function main(): Promise<void> {
   const glmClient = new GlmClient(config.glm, logger);
   const telegramReader = new TelegramReader(config.telegram, stateStore, logger);
   const ffmpegRenderer = new FfmpegRenderer(config.reel.fontFile, logger);
+  const heygenClient = config.heygen.enabled
+    ? new HeygenClient(config.heygen, logger)
+    : undefined;
   const storageService = new StorageService(config.storage, logger);
   const scriptGenerator = new ScriptGenerator(glmClient, logger);
   const captionGenerator = new CaptionGenerator(glmClient, logger);
-  const videoGenerator = new VideoGenerator(config, ffmpegRenderer);
+  const videoGenerator = new VideoGenerator(config, ffmpegRenderer, logger, heygenClient);
   const telegramPublisher = config.telegram.deliveryEnabled
     ? new TelegramPublisher(config.telegram, logger)
     : undefined;
