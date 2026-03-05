@@ -68,6 +68,8 @@ const envSchema = z.object({
   INSTAGRAM_SCOPES: z.string().default("instagram_business_basic,instagram_business_content_publish"),
   INSTAGRAM_FORCE_REAUTH: envBoolean(true),
 
+  VIDEO_PROVIDER: z.enum(["template", "heygen", "pika"]).default("template"),
+
   HEYGEN_ENABLED: envBoolean(false),
   HEYGEN_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   HEYGEN_BASE_URL: z.string().url().default("https://api.heygen.com"),
@@ -79,6 +81,15 @@ const envSchema = z.object({
   HEYGEN_DIMENSION_HEIGHT: z.coerce.number().int().positive().default(1920),
   HEYGEN_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   HEYGEN_POLL_TIMEOUT_MS: z.coerce.number().int().positive().default(8 * 60_000),
+
+  PIKA_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  PIKA_BASE_URL: z.string().url().default("https://queue.fal.run"),
+  PIKA_MODEL: z.string().default("fal-ai/pika/v2.2/text-to-video"),
+  PIKA_ASPECT_RATIO: z.string().default("9:16"),
+  PIKA_DURATION_SEC: z.coerce.number().int().positive().default(10),
+  PIKA_NEGATIVE_PROMPT: z.preprocess(emptyToUndefined, z.string().optional()),
+  PIKA_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  PIKA_POLL_TIMEOUT_MS: z.coerce.number().int().positive().default(8 * 60_000),
 
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   ARTIFACT_DIR: z.string().default("./data/artifacts"),
@@ -145,6 +156,9 @@ export interface AppConfig {
     scopes: string[];
     forceReauth: boolean;
   };
+  video: {
+    provider: "template" | "heygen" | "pika";
+  };
   heygen: {
     enabled: boolean;
     apiKey?: string;
@@ -155,6 +169,16 @@ export interface AppConfig {
     backgroundColor: string;
     width: number;
     height: number;
+    pollIntervalMs: number;
+    pollTimeoutMs: number;
+  };
+  pika: {
+    apiKey?: string;
+    baseUrl: string;
+    model: string;
+    aspectRatio: string;
+    durationSec: number;
+    negativePrompt?: string;
     pollIntervalMs: number;
     pollTimeoutMs: number;
   };
@@ -182,13 +206,21 @@ export interface AppConfig {
 
 export function loadConfig(): AppConfig {
   const parsed = envSchema.parse(process.env);
+  const resolvedVideoProvider =
+    parsed.VIDEO_PROVIDER === "template" && parsed.HEYGEN_ENABLED
+      ? "heygen"
+      : parsed.VIDEO_PROVIDER;
 
   if (parsed.STORAGE_DRIVER === "local" && parsed.INSTAGRAM_ENABLED && !parsed.PUBLIC_BASE_URL) {
     throw new Error("Local storage publishing requires PUBLIC_BASE_URL so Instagram can fetch rendered videos.");
   }
 
-  if (parsed.HEYGEN_ENABLED && !parsed.HEYGEN_API_KEY) {
-    throw new Error("HEYGEN_ENABLED=true requires HEYGEN_API_KEY.");
+  if (resolvedVideoProvider === "heygen" && !parsed.HEYGEN_API_KEY) {
+    throw new Error("VIDEO_PROVIDER=heygen requires HEYGEN_API_KEY.");
+  }
+
+  if (resolvedVideoProvider === "pika" && !parsed.PIKA_API_KEY) {
+    throw new Error("VIDEO_PROVIDER=pika requires PIKA_API_KEY.");
   }
 
   if (parsed.STORAGE_DRIVER === "s3") {
@@ -249,8 +281,11 @@ export function loadConfig(): AppConfig {
       scopes: parsed.INSTAGRAM_SCOPES.split(",").map((item) => item.trim()).filter(Boolean),
       forceReauth: parsed.INSTAGRAM_FORCE_REAUTH,
     },
+    video: {
+      provider: resolvedVideoProvider,
+    },
     heygen: {
-      enabled: parsed.HEYGEN_ENABLED,
+      enabled: resolvedVideoProvider === "heygen",
       apiKey: parsed.HEYGEN_API_KEY,
       baseUrl: parsed.HEYGEN_BASE_URL.replace(/\/$/, ""),
       avatarId: parsed.HEYGEN_AVATAR_ID,
@@ -261,6 +296,16 @@ export function loadConfig(): AppConfig {
       height: parsed.HEYGEN_DIMENSION_HEIGHT,
       pollIntervalMs: parsed.HEYGEN_POLL_INTERVAL_MS,
       pollTimeoutMs: parsed.HEYGEN_POLL_TIMEOUT_MS,
+    },
+    pika: {
+      apiKey: parsed.PIKA_API_KEY,
+      baseUrl: parsed.PIKA_BASE_URL.replace(/\/$/, ""),
+      model: parsed.PIKA_MODEL.replace(/^\/+|\/+$/g, ""),
+      aspectRatio: parsed.PIKA_ASPECT_RATIO,
+      durationSec: Math.max(5, Math.min(parsed.PIKA_DURATION_SEC, 15)),
+      negativePrompt: parsed.PIKA_NEGATIVE_PROMPT,
+      pollIntervalMs: parsed.PIKA_POLL_INTERVAL_MS,
+      pollTimeoutMs: parsed.PIKA_POLL_TIMEOUT_MS,
     },
     storage: {
       driver: parsed.STORAGE_DRIVER,

@@ -82,7 +82,7 @@ export class FfmpegRenderer {
         `drawtext=fontfile=${escapedFontFile}:textfile=${this.escapeFilterValue(bodyPath)}:fontcolor=${template.textColor}:fontsize=${template.bodyFontSize}:x=${template.safeMargin + 24}:y=${template.bodyY}:line_spacing=18:enable='between(t,${start},${end})'`,
       );
       filterParts.push(
-        `drawtext=fontfile=${escapedFontFile}:text='${index + 1}/5':fontcolor=${template.mutedTextColor}:fontsize=38:x=${template.safeMargin + 24}:y=1518:enable='between(t,${start},${end})'`,
+        `drawtext=fontfile=${escapedFontFile}:text='${index + 1}/${scenes.length}':fontcolor=${template.mutedTextColor}:fontsize=38:x=${template.safeMargin + 24}:y=1518:enable='between(t,${start},${end})'`,
       );
     }
 
@@ -185,8 +185,7 @@ export class FfmpegRenderer {
     currentLabel = "v6";
 
     filterParts.push(`[${currentLabel}]format=yuv420p[vout]`);
-
-    await this.runFfmpeg([
+    const baseVideoArgs = [
       "-y",
       "-i",
       inputPath,
@@ -194,8 +193,6 @@ export class FfmpegRenderer {
       filterParts.join(";"),
       "-map",
       "[vout]",
-      "-map",
-      "0:a:0",
       "-r",
       String(fps),
       "-c:v",
@@ -211,7 +208,54 @@ export class FfmpegRenderer {
       "-movflags",
       "+faststart",
       outputPath,
-    ]);
+    ];
+
+    try {
+      await this.runFfmpeg([
+        ...baseVideoArgs.slice(0, 7),
+        "-map",
+        "0:a:0",
+        ...baseVideoArgs.slice(7),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/matches no streams|stream specifier/i.test(message)) {
+        throw error;
+      }
+
+      this.logger.warn("Source video has no audio stream; injecting silent AAC track");
+      await this.runFfmpeg([
+        "-y",
+        "-i",
+        inputPath,
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-filter_complex",
+        filterParts.join(";"),
+        "-map",
+        "[vout]",
+        "-map",
+        "1:a:0",
+        "-r",
+        String(fps),
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-shortest",
+        "-movflags",
+        "+faststart",
+        outputPath,
+      ]);
+    }
   }
 
   private escapeFilterValue(value: string): string {

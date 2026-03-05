@@ -2,17 +2,21 @@
 
 Production-oriented Node.js + TypeScript service that turns Telegram AI posts into Instagram Reels:
 
-`Telegram channel post -> GLM-5 script -> FFmpeg render -> caption -> Telegram delivery and/or Instagram publish`
+`Telegram channel post -> GLM-5 viral script -> Pika/HeyGen/FFmpeg render -> caption -> Telegram delivery and/or Instagram publish`
 
 ## What It Does
 
 - Reads the latest Telegram channel post through the Telegram Bot API.
 - Normalizes the post into structured content: `hook`, `explanation`, `prompt`, `example result`.
-- Converts that content into a five-scene Reel script.
-- Renders a 1080x1920 MP4 using FFmpeg text overlays on a generated vertical background template.
+- Converts that content into a short viral Reel script with structure: `hook -> setup -> escalation -> twist`.
+- Renders a 1080x1920 MP4 using selectable providers:
+  - `pika` (Fal queue API model)
+  - `heygen` (talking avatar)
+  - `template` (FFmpeg text-overlay fallback)
 - Creates an Instagram caption with hashtags.
 - Sends the generated Reel to Telegram (video + caption) for manual Instagram upload workflow.
-- Optional: generates a talking-avatar Reel through HeyGen API (with automatic fallback to FFmpeg text template).
+- Generates a text-to-video prompt (`aiVideoPrompt`) for visual generators.
+- Automatic fallback to FFmpeg template mode if external video provider fails.
 - Publishes the final Reel through the Instagram Graph API.
 - Supports cron-based scheduling, retries, structured logging, webhook ingestion, and a manual trigger endpoint.
 
@@ -165,8 +169,30 @@ HEYGEN_POLL_INTERVAL_MS=5000
 HEYGEN_POLL_TIMEOUT_MS=480000
 ```
 
-- Set `HEYGEN_ENABLED=true` and provide `HEYGEN_API_KEY` to generate avatar videos.
-- If HeyGen fails (quota, API errors, timeouts), the pipeline automatically falls back to FFmpeg text-template mode.
+- `HEYGEN_ENABLED` is kept for backward compatibility. Use `VIDEO_PROVIDER=heygen` for explicit provider selection.
+
+### Video Provider
+
+```env
+VIDEO_PROVIDER=template
+```
+
+- `template`: default FFmpeg text-overlay rendering.
+- `heygen`: talking avatar mode (`HEYGEN_API_KEY` required).
+- `pika`: text-to-video mode via Fal queue API (`PIKA_API_KEY` required).
+
+### Pika (Fal Queue API)
+
+```env
+PIKA_API_KEY=
+PIKA_BASE_URL=https://queue.fal.run
+PIKA_MODEL=fal-ai/pika/v2.2/text-to-video
+PIKA_ASPECT_RATIO=9:16
+PIKA_DURATION_SEC=10
+PIKA_NEGATIVE_PROMPT=
+PIKA_POLL_INTERVAL_MS=5000
+PIKA_POLL_TIMEOUT_MS=480000
+```
 
 ### Storage
 
@@ -194,14 +220,13 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com/insta-ai-reels
 
 1. `telegram-reader` fetches the newest channel post.
 2. `script-generator` extracts `hook`, `explanation`, `prompt`, and `example result`.
-3. `script-generator` turns that data into a five-scene Reel:
+3. `script-generator` turns that data into a viral short Reel:
    - Hook
-   - Problem
-   - Prompt
-   - Result
-   - CTA: `Full prompts in Telegram`
-4. `video-generator` builds a render plan.
-5. `ffmpeg-renderer` creates a vertical background template and overlays scene text.
+   - Setup
+   - Escalation
+   - Twist + CTA: `Full prompts in Telegram`
+4. `video-generator` builds a render plan and selects provider by `VIDEO_PROVIDER`.
+5. `ffmpeg-renderer` either overlays template text scenes or normalizes provider output for Reels.
 6. `caption-generator` creates the Instagram caption.
 7. `storage-service` saves the video and exposes a public URL.
 8. `instagram-publisher` creates a media container and publishes the Reel.
@@ -212,11 +237,10 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com/insta-ai-reels
 - Aspect ratio: `9:16`
 - Output: `MP4`
 - Scenes:
-  - `Hook` for 3 seconds
-  - `Problem` for 4 seconds
-  - `Prompt` for 6 seconds
-  - `Result` for 5 seconds
-  - `CTA` for 3 seconds
+  - `Hook` for 2 seconds
+  - `Setup` for 3 seconds
+  - `Escalation` for 3 seconds
+  - `Twist` for 3 seconds
 
 ## API Endpoints
 

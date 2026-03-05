@@ -16,7 +16,7 @@ export interface StructuredTelegramContent {
   exampleResult: string;
 }
 
-export type ReelSceneKey = "hook" | "problem" | "prompt" | "result" | "cta";
+export type ReelSceneKey = "hook" | "setup" | "escalation" | "twist";
 
 export interface ReelScene {
   key: ReelSceneKey;
@@ -26,10 +26,12 @@ export interface ReelScene {
 }
 
 export interface ReelScript {
+  idea: string;
   title: string;
   subtitle: string;
   ctaText: string;
   visualNotes: string;
+  aiVideoPrompt: string;
   hashtags: string[];
   totalDurationSec: number;
   scenes: ReelScene[];

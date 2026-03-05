@@ -28,7 +28,7 @@ export class CaptionGenerator {
           {
             role: "system",
             content:
-              "Write Instagram Reels captions for AI education content. Return JSON only with keys caption, hashtags, firstComment. Keep the caption concise, useful, and grounded in the source content. End with a call to action that points viewers to Telegram for full prompts.",
+              "Write Instagram Reels captions for short viral AI videos. Return JSON only with keys caption, hashtags, firstComment. Keep it concise, emotional, and curiosity-driven. Avoid clickbait promises. End with CTA: Full prompts in Telegram.",
           },
           {
             role: "user",
@@ -77,10 +77,9 @@ export class CaptionGenerator {
     reelScript: ReelScript,
   ): CaptionPayload {
     const lines = [
+      truncate(`POV: ${reelScript.idea}`, 180),
       truncate(structuredContent.hook, 180),
-      truncate(structuredContent.explanation, 280),
-      `Prompt core: ${truncate(structuredContent.prompt, 280)}`,
-      `Result: ${truncate(structuredContent.exampleResult, 220)}`,
+      truncate(`Twist: ${structuredContent.exampleResult}`, 220),
       "Full prompts in Telegram.",
     ];
 
@@ -90,7 +89,7 @@ export class CaptionGenerator {
       caption: lines.join("\n\n"),
       hashtags: reelScript.hashtags.length
         ? reelScript.hashtags
-        : ["#ai", "#automation", "#promptengineering", "#reelsmarketing"],
+        : ["#ai", "#reels", "#viral", "#pov", "#contentcreator"],
       firstComment,
     };
   }

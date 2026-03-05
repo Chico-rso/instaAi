@@ -18,6 +18,7 @@ import { InstagramAuthStore } from "./services/instagram-auth-store";
 import { JobStateStore } from "./services/job-state-store";
 import { createLogger } from "./services/logger";
 import { PipelineOrchestrator } from "./services/pipeline-orchestrator";
+import { PikaClient } from "./services/pika-client";
 import { StorageService } from "./services/storage/storage-service";
 import { TelegramReader } from "./services/telegram-reader/telegram-reader";
 
@@ -34,10 +35,13 @@ async function main(): Promise<void> {
   const heygenClient = config.heygen.enabled
     ? new HeygenClient(config.heygen, logger)
     : undefined;
+  const pikaClient = config.video.provider === "pika"
+    ? new PikaClient(config.pika, logger)
+    : undefined;
   const storageService = new StorageService(config.storage, logger);
   const scriptGenerator = new ScriptGenerator(glmClient, logger);
   const captionGenerator = new CaptionGenerator(glmClient, logger);
-  const videoGenerator = new VideoGenerator(config, ffmpegRenderer, logger, heygenClient);
+  const videoGenerator = new VideoGenerator(config, ffmpegRenderer, logger, heygenClient, pikaClient);
   const telegramPublisher = config.telegram.deliveryEnabled
     ? new TelegramPublisher(config.telegram, logger)
     : undefined;
@@ -73,6 +77,7 @@ async function main(): Promise<void> {
       telegramMode: config.telegram.mode,
       instagramEnabled: config.instagram.enabled,
       instagramAuthMode: config.instagram.authMode,
+      videoProvider: config.video.provider,
       running: orchestrator.isRunning(),
     });
   });
