@@ -41,8 +41,22 @@ export class VideoGenerator {
             jobId,
             error: error instanceof Error ? error.message : String(error),
           },
-          "Pika generation failed; falling back to FFmpeg text template",
+          "Pika generation failed; trying HeyGen fallback or FFmpeg template",
         );
+
+        if (this.config.heygen.apiKey && this.heygenClient) {
+          try {
+            return await this.generateWithHeygen(jobId, reelScript);
+          } catch (heygenError) {
+            this.logger.warn(
+              {
+                jobId,
+                error: heygenError instanceof Error ? heygenError.message : String(heygenError),
+              },
+              "HeyGen fallback after Pika failure also failed; using FFmpeg text template",
+            );
+          }
+        }
       }
     }
 
