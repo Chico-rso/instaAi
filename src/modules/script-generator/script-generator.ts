@@ -20,7 +20,7 @@ interface RawReelScriptPayload {
 const orderedSceneKeys: ReelSceneKey[] = ["hook", "setup", "escalation", "twist"];
 const sceneDurations: Record<ReelSceneKey, number> = {
   hook: 2,
-  setup: 3,
+  setup: 2,
   escalation: 3,
   twist: 3,
 };
@@ -106,7 +106,7 @@ export class ScriptGenerator {
                 constraints: {
                   format: ["hook", "setup", "escalation", "twist"],
                   ctaText: "Full prompts in Telegram",
-                  durationSec: 11,
+                  durationSec: 10,
                   maxBodyLength: 95,
                   emotionTargets: ["surprise", "curiosity"],
                   visualStyle:
@@ -220,16 +220,16 @@ export class ScriptGenerator {
     return {
       idea: "POV: one AI prompt turns chaos into viral content.",
       title: truncate(structuredContent.hook, 80),
-      subtitle: "Viral AI micro-story in 11s",
+      subtitle: "Viral AI micro-story in 10s",
       ctaText: "Full prompts in Telegram",
       visualNotes: "Fast cuts every 2-3 seconds, high contrast, cinematic movement.",
       aiVideoPrompt: truncate(
         [
-          "Vertical cinematic short video, 9:16, total 11 seconds.",
+          "Vertical cinematic short video, 9:16, total 10 seconds.",
           "Scene 1 (0-2s): unusual hook visual related to AI and creators.",
-          "Scene 2 (2-5s): setup with creator struggling in modern workspace.",
-          "Scene 3 (5-8s): escalation with surreal AI transformation and fast camera movement.",
-          "Scene 4 (8-11s): unexpected twist with clear Telegram CTA gesture.",
+          "Scene 2 (2-4s): setup with creator struggling in modern workspace.",
+          "Scene 3 (4-7s): escalation with surreal AI transformation and fast camera movement.",
+          "Scene 4 (7-10s): unexpected twist with clear Telegram CTA gesture.",
           "Dramatic lighting, social-media pacing, high detail, no logos.",
         ].join(" "),
         700,

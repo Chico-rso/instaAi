@@ -238,7 +238,7 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com/insta-ai-reels
 - Output: `MP4`
 - Scenes:
   - `Hook` for 2 seconds
-  - `Setup` for 3 seconds
+  - `Setup` for 2 seconds
   - `Escalation` for 3 seconds
   - `Twist` for 3 seconds
 
