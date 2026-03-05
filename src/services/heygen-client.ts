@@ -44,6 +44,8 @@ function sleep(delayMs: number): Promise<void> {
 }
 
 export class HeygenClient {
+  private static readonly REQUEST_TIMEOUT_MS = 25_000;
+
   constructor(
     private readonly config: AppConfig["heygen"],
     private readonly logger: AppLogger,
@@ -138,14 +140,22 @@ export class HeygenClient {
   ): Promise<T> {
     return withRetry(
       async () => {
-        const response = await fetch(`${this.config.baseUrl}${path}`, {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Api-Key": this.config.apiKey as string,
-          },
-          body: body ? JSON.stringify(body) : undefined,
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), HeygenClient.REQUEST_TIMEOUT_MS);
+        let response: Response;
+        try {
+          response = await fetch(`${this.config.baseUrl}${path}`, {
+            method,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Api-Key": this.config.apiKey as string,
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
 
         const raw = await response.text();
         if (!response.ok) {
