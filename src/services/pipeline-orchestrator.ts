@@ -117,9 +117,14 @@ export class PipelineOrchestrator {
         })) as JobRecord;
       }
 
-      const postsToProcess = options?.force
+      let postsToProcess = options?.force
         ? latestPosts
         : await this.filterUnprocessedPosts(latestPosts);
+
+      if (options?.force && postsToProcess.length < maxPosts && latestPosts[0]) {
+        const extra = this.createForcedVariants(latestPosts[0], maxPosts - postsToProcess.length);
+        postsToProcess = postsToProcess.concat(extra);
+      }
 
       if (!postsToProcess.length) {
         return (await this.stateStore.updateJob(jobId, {
@@ -321,6 +326,19 @@ export class PipelineOrchestrator {
 
   private createJobId(): string {
     return `job-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`;
+  }
+
+  private createForcedVariants(basePost: RawTelegramPost, count: number): RawTelegramPost[] {
+    const variants: RawTelegramPost[] = [];
+    for (let index = 1; index <= count; index += 1) {
+      variants.push({
+        ...basePost,
+        id: `${basePost.id}::variant-${index}`,
+        messageId: basePost.messageId + index * 100_000,
+        text: `${basePost.text}\n\n[Вариант ${index}: измени подачу и угол истории, сохрани вирусный стиль.]`,
+      });
+    }
+    return variants;
   }
 
   private getMonthKey(date: Date): string {
