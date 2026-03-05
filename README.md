@@ -113,6 +113,8 @@ TIMEZONE=Europe/Moscow
 MANUAL_TRIGGER_TOKEN=
 APP_BASE_PATH=
 OUTBOUND_PROXY_URL=
+MAX_REELS_PER_RUN=10
+MAX_REELS_PER_MONTH=10
 ```
 
 ### Telegram
@@ -198,7 +200,7 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com/insta-ai-reels
 
 ## End-to-End Flow
 
-1. `telegram-reader` fetches the newest channel post.
+1. `telegram-reader` fetches up to `MAX_REELS_PER_RUN` latest channel posts.
 2. `script-generator` extracts `hook`, `explanation`, `prompt`, and `example result`.
 3. `script-generator` turns that data into a viral short Reel:
    - Hook
@@ -210,6 +212,9 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com/insta-ai-reels
 6. `caption-generator` creates the Instagram caption.
 7. `storage-service` saves the video and exposes a public URL.
 8. `instagram-publisher` creates a media container and publishes the Reel.
+
+- `MAX_REELS_PER_RUN` is capped at `10`.
+- `MAX_REELS_PER_MONTH` is capped at `10`; once reached, new generation is skipped until the next month.
 
 ## Reel Format
 
@@ -236,8 +241,10 @@ curl http://localhost:3000/health
 curl -X POST http://localhost:3000/api/pipeline/run \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $MANUAL_TRIGGER_TOKEN" \
-  -d '{"force":true}'
+  -d '{"force":true,"count":10}'
 ```
+
+- `count` is optional and cannot exceed `10` or the remaining monthly quota.
 
 ### Job Status
 

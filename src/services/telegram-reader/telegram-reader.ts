@@ -45,11 +45,29 @@ export class TelegramReader {
   ) {}
 
   async getLatestPost(): Promise<RawTelegramPost | undefined> {
+    const posts = await this.getLatestPosts(1);
+    return posts[0];
+  }
+
+  async getLatestPosts(limit: number): Promise<RawTelegramPost[]> {
+    const normalizedLimit = Math.max(1, limit);
+    const collected = new Map<string, RawTelegramPost>();
+
     if (this.config.mode === "polling") {
-      await this.pollUpdates();
+      const polledPosts = await this.pollUpdates();
+      for (const post of polledPosts) {
+        collected.set(post.id, post);
+      }
     }
 
-    return this.stateStore.getLatestTelegramPost();
+    const latestStatePost = await this.stateStore.getLatestTelegramPost();
+    if (latestStatePost) {
+      collected.set(latestStatePost.id, latestStatePost);
+    }
+
+    return Array.from(collected.values())
+      .sort((left, right) => right.messageId - left.messageId)
+      .slice(0, normalizedLimit);
   }
 
   async captureWebhookUpdate(
@@ -70,7 +88,7 @@ export class TelegramReader {
     return post;
   }
 
-  private async pollUpdates(): Promise<void> {
+  private async pollUpdates(): Promise<RawTelegramPost[]> {
     const cursor = await this.stateStore.getTelegramCursor();
     const params = new URLSearchParams();
     params.set("timeout", "1");
@@ -90,19 +108,22 @@ export class TelegramReader {
 
     const updates = response.result.sort((left, right) => left.update_id - right.update_id);
     if (!updates.length) {
-      return;
+      return [];
     }
 
+    const postsById = new Map<string, RawTelegramPost>();
     let nextCursor = cursor ?? 0;
     for (const update of updates) {
       nextCursor = Math.max(nextCursor, update.update_id + 1);
       const post = this.extractPost(update);
       if (post) {
+        postsById.set(post.id, post);
         await this.stateStore.setLatestTelegramPost(post);
       }
     }
 
     await this.stateStore.setTelegramCursor(nextCursor);
+    return Array.from(postsById.values()).sort((left, right) => right.messageId - left.messageId);
   }
 
   private extractPost(update: TelegramUpdate): RawTelegramPost | undefined {

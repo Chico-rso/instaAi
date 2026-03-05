@@ -81,6 +81,14 @@ export interface JobRecord {
   telegramVideoMessageId?: number;
   telegramCaptionMessageId?: number;
   captionPreview?: string;
+  processedPostIds?: string[];
+  failedPostIds?: string[];
+  processedCount?: number;
+  failedCount?: number;
+  quotaMonth?: string;
+  monthlyLimit?: number;
+  monthlyGeneratedBeforeRun?: number;
+  monthlyGeneratedAfterRun?: number;
 }
 
 export interface InstagramAuthSession {

@@ -115,4 +115,21 @@ export class JobStateStore {
     await this.ensureLoaded();
     return this.state?.jobs[jobId];
   }
+
+  async getGeneratedReelsCountForMonth(monthKey: string): Promise<number> {
+    await this.ensureLoaded();
+    const jobs = this.state?.jobs ? Object.values(this.state.jobs) : [];
+
+    return jobs.reduce((total, job) => {
+      if (job.status !== "completed" || !job.completedAt?.startsWith(monthKey)) {
+        return total;
+      }
+
+      if (typeof job.processedCount === "number") {
+        return total + Math.max(0, job.processedCount);
+      }
+
+      return total + (job.sourcePostId ? 1 : 0);
+    }, 0);
+  }
 }

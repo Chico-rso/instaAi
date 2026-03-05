@@ -38,6 +38,8 @@ const envSchema = z.object({
   MANUAL_TRIGGER_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
   APP_BASE_PATH: z.string().default(""),
   OUTBOUND_PROXY_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  MAX_REELS_PER_RUN: z.coerce.number().int().min(1).max(10).default(10),
+  MAX_REELS_PER_MONTH: z.coerce.number().int().min(1).max(10).default(10),
 
   GLM_API_KEY: z.string().min(1),
   GLM_API_BASE_URL: z.string().url().default("https://api.z.ai/api/paas/v4"),
@@ -111,6 +113,10 @@ export interface AppConfig {
     manualTriggerToken?: string;
     basePath: string;
     outboundProxyUrl?: string;
+  };
+  pipeline: {
+    maxReelsPerRun: number;
+    maxReelsPerMonth: number;
   };
   glm: {
     apiKey: string;
@@ -219,6 +225,10 @@ export function loadConfig(): AppConfig {
       basePath: normalizeBasePath(parsed.APP_BASE_PATH),
       outboundProxyUrl: parsed.OUTBOUND_PROXY_URL,
     },
+    pipeline: {
+      maxReelsPerRun: parsed.MAX_REELS_PER_RUN,
+      maxReelsPerMonth: parsed.MAX_REELS_PER_MONTH,
+    },
     glm: {
       apiKey: parsed.GLM_API_KEY,
       baseUrl: parsed.GLM_API_BASE_URL.replace(/\/$/, ""),
@@ -261,7 +271,7 @@ export function loadConfig(): AppConfig {
       baseUrl: parsed.PIKA_BASE_URL.replace(/\/$/, ""),
       model: parsed.PIKA_MODEL.replace(/^\/+|\/+$/g, ""),
       aspectRatio: parsed.PIKA_ASPECT_RATIO,
-      durationSec: Math.max(5, Math.min(parsed.PIKA_DURATION_SEC, 15)),
+      durationSec: Math.max(5, Math.min(parsed.PIKA_DURATION_SEC, 10)),
       negativePrompt: parsed.PIKA_NEGATIVE_PROMPT,
       pollIntervalMs: parsed.PIKA_POLL_INTERVAL_MS,
       pollTimeoutMs: parsed.PIKA_POLL_TIMEOUT_MS,

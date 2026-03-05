@@ -146,7 +146,11 @@ async function main(): Promise<void> {
   router.post("/api/pipeline/run", ensureManualAuth(config.http.manualTriggerToken), async (request, response, next) => {
     try {
       const force = request.body?.force === true;
-      const job = await orchestrator.run("manual", { force });
+      const requestedCount = Number(request.body?.count);
+      const count = Number.isFinite(requestedCount)
+        ? Math.max(1, Math.floor(requestedCount))
+        : undefined;
+      const job = await orchestrator.run("manual", { force, maxPosts: count });
       response.status(job.status === "failed" ? 500 : 200).json(job);
     } catch (error) {
       next(error);
