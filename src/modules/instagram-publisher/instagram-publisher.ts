@@ -14,6 +14,13 @@ interface PublishReelResult {
   mediaId: string;
 }
 
+interface ContainerStatusResponse {
+  id?: string;
+  status_code?: string;
+  status?: string;
+  error_message?: string;
+}
+
 class InstagramApiError extends Error {
   constructor(
     message: string,
@@ -56,6 +63,7 @@ export class InstagramPublisher {
     );
 
     const containerId = mediaResponse.id;
+    this.logger.info({ containerId, videoUrl: input.videoUrl }, "Created Instagram media container");
     await this.waitForContainer(containerId);
 
     const publishResponse = await this.postForm<{ id: string }>(
@@ -89,10 +97,10 @@ export class InstagramPublisher {
     const deadline = Date.now() + this.config.pollTimeoutMs;
 
     while (Date.now() < deadline) {
-      const status = await this.get<{ status_code?: string; status?: string }>(
+      const status = await this.get<ContainerStatusResponse>(
         `/${containerId}`,
         {
-          fields: "status_code,status",
+          fields: "id,status_code,status,error_message",
         },
         credentials.accessToken,
       );
@@ -103,7 +111,17 @@ export class InstagramPublisher {
       }
 
       if (statusCode === "ERROR" || statusCode === "EXPIRED") {
-        throw new Error(`Instagram media container failed with status ${statusCode}.`);
+        this.logger.error(
+          {
+            containerId,
+            statusCode,
+            status,
+          },
+          "Instagram media container failed",
+        );
+        throw new Error(
+          `Instagram media container failed with status ${statusCode}${status.error_message ? `: ${status.error_message}` : "."}`,
+        );
       }
 
       await sleep(this.config.pollIntervalMs);
@@ -134,7 +152,11 @@ export class InstagramPublisher {
 
         const raw = await response.text();
         if (!response.ok) {
-          throw new InstagramApiError("Instagram Graph API POST failed.", response.status, raw);
+          throw new InstagramApiError(
+            `Instagram Graph API POST failed: ${formatInstagramApiError(raw)}`,
+            response.status,
+            raw,
+          );
         }
 
         return JSON.parse(raw) as T;
@@ -178,7 +200,11 @@ export class InstagramPublisher {
         const response = await fetch(`${this.buildUrl(path)}?${query.toString()}`);
         const raw = await response.text();
         if (!response.ok) {
-          throw new InstagramApiError("Instagram Graph API GET failed.", response.status, raw);
+          throw new InstagramApiError(
+            `Instagram Graph API GET failed: ${formatInstagramApiError(raw)}`,
+            response.status,
+            raw,
+          );
         }
 
         return JSON.parse(raw) as T;
@@ -230,4 +256,21 @@ export class InstagramPublisher {
       userId: session.user.id,
     };
   }
+}
+
+function formatInstagramApiError(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw) as { error?: { message?: string; type?: string; code?: number } };
+    const message = parsed.error?.message;
+    const type = parsed.error?.type;
+    const code = parsed.error?.code;
+    if (message) {
+      const details = [type, typeof code === "number" ? `code=${code}` : undefined].filter(Boolean).join(", ");
+      return details ? `${message} (${details})` : message;
+    }
+  } catch {
+    // Keep original raw body fallback.
+  }
+
+  return raw;
 }
