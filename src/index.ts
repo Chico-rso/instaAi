@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const glmClient = new GlmClient(config.glm, logger);
   const telegramReader = new TelegramReader(config.telegram, stateStore, logger);
   const ffmpegRenderer = new FfmpegRenderer(config.reel.fontFile, logger);
-  const heygenClient = config.heygen.enabled
+  const heygenClient = config.heygen.apiKey
     ? new HeygenClient(config.heygen, logger)
     : undefined;
   const pikaClient = config.video.provider === "pika"
