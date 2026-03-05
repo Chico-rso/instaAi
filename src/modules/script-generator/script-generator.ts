@@ -253,7 +253,8 @@ export class ScriptGenerator {
       }
     >();
 
-    for (const scene of payload.scenes ?? []) {
+    const rawScenes = Array.isArray(payload.scenes) ? payload.scenes : [];
+    for (const scene of rawScenes) {
       if (scene.key) {
         incomingScenes.set(scene.key, scene);
       }
