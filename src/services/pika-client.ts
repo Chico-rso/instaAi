@@ -58,6 +58,7 @@ export class PikaClient {
     const responseUrl = extractEndpointUrl(submitted, ["response_url", "responseUrl"]);
 
     const deadline = Date.now() + this.config.pollTimeoutMs;
+    let completed = false;
     while (Date.now() < deadline) {
       const statusPayload = statusUrl
         ? await this.requestJsonUrl<Record<string, unknown>>("GET", statusUrl)
@@ -68,6 +69,7 @@ export class PikaClient {
       const status = readStatus(statusPayload);
 
       if (isCompletedStatus(status)) {
+        completed = true;
         break;
       }
 
@@ -80,13 +82,44 @@ export class PikaClient {
       await sleep(this.config.pollIntervalMs);
     }
 
-    const completed = responseUrl
-      ? await this.requestJsonUrl<Record<string, unknown>>("GET", responseUrl)
-      : await this.requestJson<Record<string, unknown>>(
-        "GET",
-        `/requests/${encodeURIComponent(requestId)}`,
+    if (!completed) {
+      throw new Error(
+        `Pika generation timed out for ${requestId} after ${this.config.pollTimeoutMs}ms.`,
       );
-    const finalVideoUrl = extractVideoUrl(completed);
+    }
+
+    const completionResponseDeadline = Date.now() + Math.max(30_000, this.config.pollIntervalMs * 6);
+    let completionPayload: Record<string, unknown> | undefined;
+    while (Date.now() < completionResponseDeadline) {
+      try {
+        completionPayload = responseUrl
+          ? await this.requestJsonUrl<Record<string, unknown>>("GET", responseUrl)
+          : await this.requestJson<Record<string, unknown>>(
+            "GET",
+            `/requests/${encodeURIComponent(requestId)}`,
+          );
+        break;
+      } catch (error) {
+        if (
+          error instanceof PikaApiError &&
+          error.status === 400 &&
+          /still in progress/i.test(error.body)
+        ) {
+          await sleep(this.config.pollIntervalMs);
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    if (!completionPayload) {
+      throw new Error(
+        `Pika reported completion for ${requestId}, but response payload remained unavailable.`,
+      );
+    }
+
+    const finalVideoUrl = extractVideoUrl(completionPayload);
     if (!finalVideoUrl) {
       throw new Error(`Pika request ${requestId} completed without a video URL.`);
     }

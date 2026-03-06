@@ -43,28 +43,28 @@ export class TelegramPublisher {
 
   async deliverReel(input: DeliverReelInput): Promise<DeliverReelResult> {
     const chatId = this.resolveChatId();
-    const caption = buildTelegramVideoCaption(input.caption, input.hashtags, input.sourcePermalink);
-    const shortCaption = caption.slice(0, 1_000);
+    const { primaryCaption, remainderText } = buildTelegramCaptions(
+      input.caption,
+      input.hashtags,
+      input.sourcePermalink,
+    );
 
     const videoMessage = await this.post<TelegramMessage>("sendVideo", {
       chat_id: chatId,
       video: input.videoUrl,
-      caption: shortCaption,
+      caption: primaryCaption,
       disable_notification: String(this.config.deliveryDisableNotification),
       supports_streaming: "true",
     });
 
     let captionMessageId: number | undefined;
-    if (caption.length > shortCaption.length) {
-      const remainder = caption.slice(shortCaption.length).trim();
-      if (remainder) {
+    if (remainderText) {
         const textMessage = await this.post<TelegramMessage>("sendMessage", {
           chat_id: chatId,
-          text: remainder,
+          text: remainderText,
           disable_notification: String(this.config.deliveryDisableNotification),
         });
         captionMessageId = textMessage.message_id;
-      }
     }
 
     this.logger.info(
@@ -138,25 +138,40 @@ export class TelegramPublisher {
   }
 }
 
-function buildTelegramVideoCaption(
+function buildTelegramCaptions(
   caption: string,
   hashtags: string[],
   sourcePermalink?: string,
-): string {
-  const parts: string[] = [];
+): { primaryCaption: string; remainderText?: string } {
   const normalizedCaption = caption.trim();
-  if (normalizedCaption) {
-    parts.push(normalizedCaption);
-  }
-
   const hashtagLine = hashtags.filter(Boolean).join(" ").trim();
-  if (hashtagLine) {
-    parts.push(hashtagLine);
+  const sourceLine = sourcePermalink ? `Источник: ${sourcePermalink}` : "";
+
+  const fixedBlocks = [hashtagLine, sourceLine].filter(Boolean);
+  const fixedTail = fixedBlocks.length ? `\n\n${fixedBlocks.join("\n\n")}` : "";
+  const maxTelegramCaption = 1_000;
+  const minBodyReserve = 120;
+  const availableForBody = Math.max(minBodyReserve, maxTelegramCaption - fixedTail.length);
+
+  let primaryBody = normalizedCaption;
+  let remainderText: string | undefined;
+  if (normalizedCaption.length > availableForBody) {
+    primaryBody = normalizedCaption.slice(0, Math.max(0, availableForBody - 1)).trimEnd();
+    remainderText = normalizedCaption.slice(primaryBody.length).trim();
   }
 
-  if (sourcePermalink) {
-    parts.push(`Источник: ${sourcePermalink}`);
+  const primaryCaption = `${primaryBody}${fixedTail}`.slice(0, maxTelegramCaption).trim();
+
+  if (!primaryCaption) {
+    const fallbackCaption = fixedBlocks.join("\n\n").slice(0, maxTelegramCaption).trim();
+    return {
+      primaryCaption: fallbackCaption || "Новый рилс готов.",
+      remainderText,
+    };
   }
 
-  return parts.join("\n\n");
+  return {
+    primaryCaption,
+    remainderText,
+  };
 }

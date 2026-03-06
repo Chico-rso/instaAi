@@ -173,6 +173,9 @@ export class ScriptGenerator {
                 "- Работай независимо от темы исходного Telegram-поста.",
                 "- Не используй темы про HeyGen, AI-аватаров и тест рендера.",
                 "- Не используй кошек/котов/giant cat и похожие cat-motif сюжеты.",
+                "- Держи сюжет понятным: одна ясная ситуация, один герой, одно место.",
+                "- Стиль: реализм + легкая фантастика (ровно 1 фантастический элемент).",
+                "- Избегай сюрреалистичного хаоса и бессвязных метафор.",
                 "- Верни строгий JSON без markdown и лишнего текста.",
                 "- Допустимые ключи JSON: idea, title, subtitle, visualNotes, aiVideoPrompt, hashtags, scenes.",
                 "- scenes: массив из 4 объектов с key из hook/setup/escalation/twist, плюс title и body.",
@@ -191,17 +194,17 @@ export class ScriptGenerator {
                 constraints: {
                   categories: [
                     "POV",
-                    "alternative reality",
-                    "surreal AI scenes",
+                    "grounded alternative reality",
+                    "realistic sci-fi anomaly",
                     "micro-stories with twist",
-                    "visual transformations",
+                    "subtle visual transformations",
                   ],
                   ctaText: "Full prompts in Telegram",
                   durationSec: 10,
                   maxBodyLength: 95,
-                  emotionTargets: ["surprise", "shock", "curiosity", "laughter"],
+                  emotionTargets: ["surprise", "curiosity", "tension"],
                   visualStyle:
-                    "cinematic, high contrast, unusual visuals, fast transitions, vertical 9:16",
+                    "photorealistic, cinematic, natural motion, coherent scene logic, vertical 9:16",
                 },
               },
               null,
@@ -332,16 +335,18 @@ export class ScriptGenerator {
       .filter(Boolean)
       .slice(0, 8);
 
+    const idea = truncate((payload.idea || fallback.idea).replace(/\s+/g, " ").trim(), 110);
+    const title = truncate((payload.title || fallback.title).trim(), 80);
+    const subtitle = truncate((payload.subtitle || fallback.subtitle).trim(), 110);
+    const visualNotes = truncate((payload.visualNotes || fallback.visualNotes).trim(), 180);
+
     return {
-      idea: truncate((payload.idea || fallback.idea).replace(/\s+/g, " ").trim(), 110),
-      title: truncate((payload.title || fallback.title).trim(), 80),
-      subtitle: truncate((payload.subtitle || fallback.subtitle).trim(), 110),
+      idea,
+      title,
+      subtitle,
       ctaText: "Full prompts in Telegram",
-      visualNotes: truncate((payload.visualNotes || fallback.visualNotes).trim(), 180),
-      aiVideoPrompt: truncate(
-        (payload.aiVideoPrompt || fallback.aiVideoPrompt).replace(/\s+/g, " ").trim(),
-        700,
-      ),
+      visualNotes,
+      aiVideoPrompt: buildGroundedVideoPrompt(idea, visualNotes, scenes),
       hashtags: hashtags.length ? hashtags : fallback.hashtags,
       totalDurationSec: scenes.reduce((total, scene) => total + scene.durationSec, 0),
       scenes,
@@ -377,4 +382,28 @@ function normalizeHashtagList(value: unknown, fallback: string[]): string[] {
   }
 
   return fallback;
+}
+
+function buildGroundedVideoPrompt(
+  idea: string,
+  visualNotes: string,
+  scenes: Array<{ title: string; body: string; durationSec: number }>,
+): string {
+  const timeline = scenes
+    .map((scene, index) => `Scene ${index + 1} (${scene.durationSec}s): ${scene.body}`)
+    .join(" ");
+
+  return truncate(
+    [
+      "Vertical 9:16, photorealistic cinematic short video, natural camera motion, consistent lighting.",
+      "Grounded realism with exactly one subtle sci-fi element.",
+      "Single clear protagonist, coherent location, logical continuity between scenes.",
+      "No surreal chaos, no cartoon style, no abstract symbolism.",
+      "No animals, no cats, no text overlay, no logo, no watermark, no frame-in-frame.",
+      `Core idea: ${idea}.`,
+      `Visual direction: ${visualNotes}.`,
+      timeline,
+    ].join(" "),
+    700,
+  );
 }

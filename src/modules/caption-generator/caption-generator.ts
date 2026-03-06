@@ -9,6 +9,14 @@ interface CaptionResponse {
   firstComment?: string;
 }
 
+const defaultCaptionHashtags = [
+  "#reels",
+  "#viral",
+  "#ai",
+  "#pov",
+  "#cinematic",
+];
+
 export class CaptionGenerator {
   constructor(
     private readonly glmClient: GlmClient,
@@ -28,7 +36,14 @@ export class CaptionGenerator {
           {
             role: "system",
             content:
-              "Write Instagram Reels captions for short viral videos. Return JSON only with keys caption, hashtags, firstComment. Use the reelScript as the single source of truth. Keep it concise, emotional, and curiosity-driven. Avoid mentioning HeyGen, avatar testing, or render diagnostics. Avoid clickbait promises.",
+              [
+                "Write Instagram Reels captions for short viral videos.",
+                "Return JSON only with keys caption, hashtags, firstComment.",
+                "Use reelScript as the single source of truth.",
+                "Caption format: 2-4 short lines, hook in first line, concise and curiosity-driven.",
+                "Hashtags: return 5-7 relevant hashtags.",
+                "Avoid mentioning HeyGen, avatar testing, render diagnostics, or clickbait promises.",
+              ].join(" "),
           },
           {
             role: "user",
@@ -45,17 +60,14 @@ export class CaptionGenerator {
         0.6,
       );
 
-      const hashtags = normalizeHashtagList(response.hashtags, fallback.hashtags)
-        .map(normalizeHashtag)
-        .filter(Boolean)
-        .slice(0, 8);
+      const hashtags = ensureHashtags(
+        normalizeHashtagList(response.hashtags, fallback.hashtags),
+        fallback.hashtags,
+      );
 
       return {
-        caption: truncate(
-          (response.caption || fallback.caption).replace(/\n{3,}/g, "\n\n").trim(),
-          2_100,
-        ),
-        hashtags: hashtags.length ? hashtags : fallback.hashtags,
+        caption: formatCaption(response.caption || fallback.caption),
+        hashtags,
         firstComment: response.firstComment?.trim() || fallback.firstComment,
       };
     } catch (error) {
@@ -89,9 +101,12 @@ export class CaptionGenerator {
 
     return {
       caption: lines.join("\n\n"),
-      hashtags: reelScript.hashtags.length
-        ? reelScript.hashtags
-        : ["#ai", "#reels", "#viral", "#pov", "#contentcreator"],
+      hashtags: ensureHashtags(
+        reelScript.hashtags.length
+          ? reelScript.hashtags
+          : ["#ai", "#reels", "#viral", "#pov", "#contentcreator"],
+        defaultCaptionHashtags,
+      ),
       firstComment,
     };
   }
@@ -107,4 +122,36 @@ function normalizeHashtagList(value: unknown, fallback: string[]): string[] {
   }
 
   return fallback;
+}
+
+function formatCaption(value: string): string {
+  const cleaned = value.replace(/\n{3,}/g, "\n\n").trim();
+  const lines = cleaned
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  if (!lines.length) {
+    return "";
+  }
+
+  const firstLine = truncate(lines[0], 96);
+  const rest = lines.slice(1).join("\n");
+  return truncate([firstLine, rest].filter(Boolean).join("\n\n"), 2_100);
+}
+
+function ensureHashtags(candidate: string[], fallback: string[]): string[] {
+  const merged = [...candidate, ...fallback, ...defaultCaptionHashtags]
+    .map(normalizeHashtag)
+    .filter(Boolean);
+
+  const unique: string[] = [];
+  for (const tag of merged) {
+    if (!unique.includes(tag)) {
+      unique.push(tag);
+    }
+  }
+
+  return unique.slice(0, 7);
 }

@@ -29,6 +29,25 @@ const envBoolean = (defaultValue: boolean) =>
     return value;
   }, z.boolean()).default(defaultValue);
 
+const defaultPikaNegativePrompt = [
+  "cartoon",
+  "anime",
+  "illustration",
+  "abstract surrealism",
+  "incoherent scene",
+  "deformed body",
+  "extra limbs",
+  "distorted face",
+  "text",
+  "subtitles",
+  "watermark",
+  "logo",
+  "border",
+  "frame within frame",
+  "animals",
+  "cat",
+].join(", ");
+
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.string().default("info"),
@@ -79,7 +98,7 @@ const envSchema = z.object({
   PIKA_DURATION_SEC: z.coerce.number().int().positive().default(10),
   PIKA_NEGATIVE_PROMPT: z.preprocess(emptyToUndefined, z.string().optional()),
   PIKA_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
-  PIKA_POLL_TIMEOUT_MS: z.coerce.number().int().positive().default(8 * 60_000),
+  PIKA_POLL_TIMEOUT_MS: z.coerce.number().int().positive().default(12 * 60_000),
 
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   ARTIFACT_DIR: z.string().default("./data/artifacts"),
@@ -276,7 +295,7 @@ export function loadConfig(): AppConfig {
       model: parsed.PIKA_MODEL.replace(/^\/+|\/+$/g, ""),
       aspectRatio: parsed.PIKA_ASPECT_RATIO,
       durationSec: Math.max(5, Math.min(parsed.PIKA_DURATION_SEC, 10)),
-      negativePrompt: parsed.PIKA_NEGATIVE_PROMPT,
+      negativePrompt: parsed.PIKA_NEGATIVE_PROMPT || defaultPikaNegativePrompt,
       pollIntervalMs: parsed.PIKA_POLL_INTERVAL_MS,
       pollTimeoutMs: parsed.PIKA_POLL_TIMEOUT_MS,
     },
