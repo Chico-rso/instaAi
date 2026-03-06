@@ -132,4 +132,20 @@ export class JobStateStore {
       return total + (job.sourcePostId ? 1 : 0);
     }, 0);
   }
+
+  async getRecentCaptionPreviews(limit = 6): Promise<string[]> {
+    await this.ensureLoaded();
+    const jobs = this.state?.jobs ? Object.values(this.state.jobs) : [];
+
+    return jobs
+      .filter((job) => job.status === "completed" && typeof job.captionPreview === "string")
+      .sort((left, right) => {
+        const leftDate = Date.parse(left.createdAt || "") || 0;
+        const rightDate = Date.parse(right.createdAt || "") || 0;
+        return rightDate - leftDate;
+      })
+      .map((job) => (job.captionPreview || "").trim())
+      .filter(Boolean)
+      .slice(0, Math.max(1, limit));
+  }
 }

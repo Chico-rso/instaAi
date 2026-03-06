@@ -236,7 +236,10 @@ export class PipelineOrchestrator {
   }
 
   private async processPost(jobId: string, post: RawTelegramPost): Promise<ProcessedPostResult> {
-    const { structuredContent, reelScript } = await this.scriptGenerator.generate(post);
+    const recentExamples = await this.stateStore.getRecentCaptionPreviews(6);
+    const { structuredContent, reelScript } = await this.scriptGenerator.generate(post, {
+      recentExamples,
+    });
     const renderedReel = await this.videoGenerator.generate(jobId, reelScript);
     const captionPayload = await this.captionGenerator.generate(
       post,

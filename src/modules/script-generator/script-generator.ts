@@ -146,8 +146,11 @@ export class ScriptGenerator {
 
   async generate(
     post: RawTelegramPost,
+    options?: {
+      recentExamples?: string[];
+    },
   ): Promise<{ structuredContent: StructuredTelegramContent; reelScript: ReelScript }> {
-    const reelScript = await this.buildReelScript(post);
+    const reelScript = await this.buildReelScript(post, options);
     const structuredContent = this.createStructuredContent(post, reelScript);
 
     return {
@@ -156,9 +159,18 @@ export class ScriptGenerator {
     };
   }
 
-  private async buildReelScript(post: RawTelegramPost): Promise<ReelScript> {
+  private async buildReelScript(
+    post: RawTelegramPost,
+    options?: {
+      recentExamples?: string[];
+    },
+  ): Promise<ReelScript> {
     const fallback = this.fallbackReelScript();
     const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const recentExamples = (options?.recentExamples || [])
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 6);
 
     try {
       const payload = await this.glmClient.completeJson<RawReelScriptPayload>(
@@ -172,10 +184,10 @@ export class ScriptGenerator {
                 "Дополнительные правила выполнения:",
                 "- Работай независимо от темы исходного Telegram-поста.",
                 "- Не используй темы про HeyGen, AI-аватаров и тест рендера.",
-                "- Не используй кошек/котов/giant cat и похожие cat-motif сюжеты.",
                 "- Держи сюжет понятным: одна ясная ситуация, один герой, одно место.",
                 "- Стиль: реализм + легкая фантастика (ровно 1 фантастический элемент).",
                 "- Избегай сюрреалистичного хаоса и бессвязных метафор.",
+                "- Не повторяй идеи, локации и твисты из recentExamples.",
                 "- Верни строгий JSON без markdown и лишнего текста.",
                 "- Допустимые ключи JSON: idea, title, subtitle, visualNotes, aiVideoPrompt, hashtags, scenes.",
                 "- scenes: массив из 4 объектов с key из hook/setup/escalation/twist, плюс title и body.",
@@ -191,6 +203,7 @@ export class ScriptGenerator {
                 triggerChannel: post.channel,
                 triggerDate: post.date,
                 variationSeed,
+                recentExamples,
                 constraints: {
                   categories: [
                     "POV",

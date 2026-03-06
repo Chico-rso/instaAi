@@ -44,8 +44,6 @@ const defaultPikaNegativePrompt = [
   "logo",
   "border",
   "frame within frame",
-  "animals",
-  "cat",
 ].join(", ");
 
 const envSchema = z.object({
