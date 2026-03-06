@@ -28,15 +28,14 @@ export class CaptionGenerator {
           {
             role: "system",
             content:
-              "Write Instagram Reels captions for short viral AI videos. Return JSON only with keys caption, hashtags, firstComment. Keep it concise, emotional, and curiosity-driven. Avoid clickbait promises. End with CTA: Full prompts in Telegram.",
+              "Write Instagram Reels captions for short viral videos. Return JSON only with keys caption, hashtags, firstComment. Use the reelScript as the single source of truth. Keep it concise, emotional, and curiosity-driven. Avoid mentioning HeyGen, avatar testing, or render diagnostics. Avoid clickbait promises.",
           },
           {
             role: "user",
             content: JSON.stringify(
               {
-                sourcePost: post,
-                structuredContent,
                 reelScript,
+                sourcePermalink: post.permalink,
               },
               null,
               2,
@@ -73,13 +72,16 @@ export class CaptionGenerator {
 
   private fallbackCaption(
     post: RawTelegramPost,
-    structuredContent: StructuredTelegramContent,
+    _structuredContent: StructuredTelegramContent,
     reelScript: ReelScript,
   ): CaptionPayload {
+    const hook = reelScript.scenes.find((scene) => scene.key === "hook")?.body || reelScript.title;
+    const twist = reelScript.scenes.find((scene) => scene.key === "twist")?.body || reelScript.idea;
+
     const lines = [
       truncate(`POV: ${reelScript.idea}`, 180),
-      truncate(structuredContent.hook, 180),
-      truncate(`Twist: ${structuredContent.exampleResult}`, 220),
+      truncate(hook, 180),
+      truncate(`Twist: ${twist}`, 220),
       "Full prompts in Telegram.",
     ];
 

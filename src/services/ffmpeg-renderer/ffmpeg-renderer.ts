@@ -14,6 +14,8 @@ export class FfmpegRenderer {
   constructor(
     private readonly fontFile: string,
     private readonly logger: AppLogger,
+    private readonly audioFile?: string,
+    private readonly audioVolume = 0.25,
   ) {}
 
   async createTemplateBackground(
@@ -88,23 +90,25 @@ export class FfmpegRenderer {
 
     filterParts.push("format=yuv420p");
     const totalDurationSec = scenes.length ? scenes[scenes.length - 1].endSec : 0;
+    const audioInputArgs = this.audioFile
+      ? ["-stream_loop", "-1", "-i", this.audioFile]
+      : ["-f", "lavfi", "-t", formatSeconds(totalDurationSec), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"];
+    const audioFilterArgs = this.audioFile
+      ? ["-filter:a", `volume=${this.audioVolume}`]
+      : [];
 
     await this.runFfmpeg([
       "-y",
       "-i",
       inputPath,
-      "-f",
-      "lavfi",
-      "-t",
-      formatSeconds(totalDurationSec),
-      "-i",
-      "anullsrc=channel_layout=stereo:sample_rate=48000",
+      ...audioInputArgs,
       "-vf",
       filterParts.join(","),
       "-map",
       "0:v:0",
       "-map",
       "1:a:0",
+      ...audioFilterArgs,
       "-c:v",
       "libx264",
       "-preset",
@@ -145,46 +149,12 @@ export class FfmpegRenderer {
     width: number,
     height: number,
     fps: number,
-    options?: {
-      topTitle?: string;
-      bottomText?: string;
-      durationSec?: number;
-    },
   ): Promise<void> {
     await mkdir(dirname(outputPath), { recursive: true });
 
     const filterParts = [
-      `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},boxblur=18:2,eq=brightness=-0.08:saturation=1.15[bg]`,
-      `[0:v]scale=${Math.floor(width * 0.76)}:-2[fg]`,
-      "[bg][fg]overlay=(W-w)/2:(H-h)/2[v0]",
-      `[v0]drawbox=x=54:y=96:w=${width - 108}:h=${height - 192}:color=white@0.06:t=4[v1]`,
-      `[v1]drawbox=x=0:y=0:w=${width}:h=180:color=black@0.26:t=fill[v2]`,
-      `[v2]drawbox=x=0:y=${height - 240}:w=${width}:h=240:color=black@0.30:t=fill[v3]`,
+      `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,format=yuv420p[vout]`,
     ];
-
-    let currentLabel = "v3";
-    if (options?.topTitle) {
-      const text = this.escapeFilterValue(options.topTitle.trim().slice(0, 80));
-      filterParts.push(
-        `[${currentLabel}]drawtext=fontfile=${this.escapeFilterValue(this.fontFile)}:text='${text}':fontcolor=0xF8FAFC:fontsize=56:x=(w-text_w)/2:y=52[v4]`,
-      );
-      currentLabel = "v4";
-    }
-
-    if (options?.bottomText) {
-      const text = this.escapeFilterValue(options.bottomText.trim().slice(0, 120));
-      filterParts.push(
-        `[${currentLabel}]drawtext=fontfile=${this.escapeFilterValue(this.fontFile)}:text='${text}':fontcolor=0xCBD5E1:fontsize=42:x=(w-text_w)/2:y=h-150[v5]`,
-      );
-      currentLabel = "v5";
-    }
-
-    filterParts.push(
-      `[${currentLabel}]drawbox=x=80:y=${height - 40}:w=${width - 160}:h=10:color=0x2DD4BF@0.90:t=fill[v6]`,
-    );
-    currentLabel = "v6";
-
-    filterParts.push(`[${currentLabel}]format=yuv420p[vout]`);
     const baseVideoArgs = [
       "-y",
       "-i",
@@ -223,21 +193,30 @@ export class FfmpegRenderer {
         throw error;
       }
 
-      this.logger.warn("Source video has no audio stream; injecting silent AAC track");
+      const audioInputArgs = this.audioFile
+        ? ["-stream_loop", "-1", "-i", this.audioFile]
+        : ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"];
+      const audioFilterArgs = this.audioFile
+        ? ["-filter:a", `volume=${this.audioVolume}`]
+        : [];
+
+      this.logger.warn(
+        this.audioFile
+          ? "Source video has no audio stream; injecting configured background audio track"
+          : "Source video has no audio stream; injecting silent AAC track",
+      );
       await this.runFfmpeg([
         "-y",
         "-i",
         inputPath,
-        "-f",
-        "lavfi",
-        "-i",
-        "anullsrc=channel_layout=stereo:sample_rate=48000",
+        ...audioInputArgs,
         "-filter_complex",
         filterParts.join(";"),
         "-map",
         "[vout]",
         "-map",
         "1:a:0",
+        ...audioFilterArgs,
         "-r",
         String(fps),
         "-c:v",

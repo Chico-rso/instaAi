@@ -87,7 +87,8 @@ export class PipelineOrchestrator {
       const monthlyLimit = this.config.pipeline.maxReelsPerMonth;
       const monthlyGeneratedBeforeRun = await this.stateStore.getGeneratedReelsCountForMonth(monthKey);
       const monthlyRemaining = monthlyLimit - monthlyGeneratedBeforeRun;
-      if (monthlyRemaining <= 0) {
+      const forceRun = options?.force === true;
+      if (monthlyRemaining <= 0 && !forceRun) {
         return (await this.stateStore.updateJob(jobId, {
           status: "skipped",
           completedAt: new Date().toISOString(),
@@ -102,7 +103,11 @@ export class PipelineOrchestrator {
       const requestedMaxPosts = options?.maxPosts ?? this.config.pipeline.maxReelsPerRun;
       const maxPosts = Math.max(
         1,
-        Math.min(this.config.pipeline.maxReelsPerRun, requestedMaxPosts, monthlyRemaining),
+        Math.min(
+          this.config.pipeline.maxReelsPerRun,
+          requestedMaxPosts,
+          forceRun ? this.config.pipeline.maxReelsPerRun : monthlyRemaining,
+        ),
       );
       const latestPosts = await this.telegramReader.getLatestPosts(maxPosts);
       if (!latestPosts.length) {

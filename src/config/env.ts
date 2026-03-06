@@ -99,6 +99,8 @@ const envSchema = z.object({
   REEL_FPS: z.coerce.number().int().positive().default(30),
   REEL_WIDTH: z.coerce.number().int().positive().default(1080),
   REEL_HEIGHT: z.coerce.number().int().positive().default(1920),
+  REEL_AUDIO_FILE: z.preprocess(emptyToUndefined, z.string().optional()),
+  REEL_AUDIO_VOLUME: z.coerce.number().min(0).max(3).default(0.25),
 });
 
 export interface AppConfig {
@@ -186,6 +188,8 @@ export interface AppConfig {
     fps: number;
     width: number;
     height: number;
+    audioFile?: string;
+    audioVolume: number;
   };
 }
 
@@ -300,6 +304,8 @@ export function loadConfig(): AppConfig {
       fps: parsed.REEL_FPS,
       width: parsed.REEL_WIDTH,
       height: parsed.REEL_HEIGHT,
+      audioFile: parsed.REEL_AUDIO_FILE ? resolve(parsed.REEL_AUDIO_FILE) : undefined,
+      audioVolume: parsed.REEL_AUDIO_VOLUME,
     },
   };
 }

@@ -30,7 +30,12 @@ async function main(): Promise<void> {
   const instagramAuthStore = new InstagramAuthStore(config.storage.stateDir);
   const glmClient = new GlmClient(config.glm, logger);
   const telegramReader = new TelegramReader(config.telegram, stateStore, logger);
-  const ffmpegRenderer = new FfmpegRenderer(config.reel.fontFile, logger);
+  const ffmpegRenderer = new FfmpegRenderer(
+    config.reel.fontFile,
+    logger,
+    config.reel.audioFile,
+    config.reel.audioVolume,
+  );
   const pikaClient = config.video.provider === "pika"
     ? new PikaClient(config.pika, logger)
     : undefined;

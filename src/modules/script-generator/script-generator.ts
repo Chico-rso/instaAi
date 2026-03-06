@@ -17,6 +17,114 @@ interface RawReelScriptPayload {
   }>;
 }
 
+const defaultViralMasterPrompt = `Ты AI-режиссер вирусных коротких видео для Instagram Reels.
+
+Твоя задача: генерировать идеи, сценарии и промты для создания максимально вирусных Reels.
+
+Ты должен создавать ролики, которые максимально удерживают внимание пользователя.
+
+Главные правила вирусных Reels:
+
+1. Первые 2 секунды должны содержать сильный HOOK
+2. Видео должно быть коротким (7–15 секунд)
+3. Каждая сцена должна менять визуал каждые 2–3 секунды
+4. Видео должно вызывать эмоцию:
+   удивление
+   шок
+   смех
+   curiosity
+5. Видео должно иметь неожиданный финал (twist)
+
+Структура каждого ролика:
+
+HOOK (0–2 секунды)
+→ визуально странная или интригующая сцена
+
+SETUP (2–6 секунд)
+→ зритель начинает понимать ситуацию
+
+ESCALATION (6–10 секунд)
+→ происходит развитие
+
+TWIST (10–15 секунд)
+→ неожиданная развязка
+
+Категории вирусных видео:
+
+1. POV видео
+пример:
+POV: ты проснулся в мире где AI управляет людьми
+
+2. альтернативная реальность
+пример:
+что если древний Рим существовал в 2026
+
+3. сюрреалистичные AI сцены
+пример:
+огромный кот идет по Нью-Йорку как человек
+
+4. микро-истории
+короткий сюжет с неожиданным финалом
+
+5. визуальные трансформации
+пример:
+человек превращается в робота
+
+Для каждого ролика генерируй:
+
+1. идею ролика
+2. сценарий
+3. текстовый промт для AI генератора видео
+4. caption
+5. 3–5 хештегов
+
+Пример результата:
+
+Идея:
+POV: ты проснулся в 3026 году
+
+Сценарий:
+
+0-2 сек
+человек открывает глаза
+вместо солнца в небе огромный AI-глаз
+
+2-6 сек
+роботы идут по улицам
+
+6-10 сек
+огромный дрон смотрит на героя
+
+10-15 сек
+дрон говорит:
+"Добро пожаловать, человек"
+
+AI VIDEO PROMPT:
+
+cinematic futuristic city
+giant AI eye in the sky
+robots walking
+dramatic lighting
+vertical video
+hyper realistic
+9:16
+
+caption:
+
+POV: 3026 год уже наступил
+
+hashtags:
+
+#ai
+#future
+#reels
+#viral
+#pov
+
+Генерируй только вирусные концепции.
+Избегай скучных или обычных идей.
+Каждый ролик должен быть визуально необычным.`;
+
 const orderedSceneKeys: ReelSceneKey[] = ["hook", "setup", "escalation", "twist"];
 const sceneDurations: Record<ReelSceneKey, number> = {
   hook: 2,
@@ -26,16 +134,21 @@ const sceneDurations: Record<ReelSceneKey, number> = {
 };
 
 export class ScriptGenerator {
+  private readonly viralMasterPrompt: string;
+
   constructor(
     private readonly glmClient: GlmClient,
     private readonly logger: AppLogger,
-  ) {}
+    masterPromptFromEnv: string | undefined = process.env.VIRAL_REELS_MASTER_PROMPT,
+  ) {
+    this.viralMasterPrompt = normalizeMasterPrompt(masterPromptFromEnv);
+  }
 
   async generate(
     post: RawTelegramPost,
   ): Promise<{ structuredContent: StructuredTelegramContent; reelScript: ReelScript }> {
-    const structuredContent = await this.normalizePost(post);
-    const reelScript = await this.buildReelScript(structuredContent);
+    const reelScript = await this.buildReelScript(post);
+    const structuredContent = this.createStructuredContent(post, reelScript);
 
     return {
       structuredContent,
@@ -43,52 +156,9 @@ export class ScriptGenerator {
     };
   }
 
-  private async normalizePost(post: RawTelegramPost): Promise<StructuredTelegramContent> {
-    const fallback = this.fallbackStructuredContent(post);
-
-    try {
-      const aiResult = await this.glmClient.completeJson<{
-        hook: string;
-        explanation: string;
-        prompt: string;
-        exampleResult: string;
-      }>(
-        [
-          {
-            role: "system",
-            content:
-              "Extract structured fields from a Telegram post about AI prompts. Return strict JSON only with keys hook, explanation, prompt, exampleResult. Preserve source meaning and avoid invented claims.",
-          },
-          {
-            role: "user",
-            content: `Telegram post:\n${post.text}`,
-          },
-        ],
-        0.2,
-      );
-
-      return {
-        sourcePostId: post.id,
-        rawText: post.text,
-        hook: truncate((aiResult.hook || fallback.hook).trim(), 140),
-        explanation: truncate((aiResult.explanation || fallback.explanation).trim(), 260),
-        prompt: truncate((aiResult.prompt || fallback.prompt).trim(), 340),
-        exampleResult: truncate((aiResult.exampleResult || fallback.exampleResult).trim(), 260),
-      };
-    } catch (error) {
-      this.logger.warn(
-        {
-          postId: post.id,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        "Falling back to deterministic Telegram parsing",
-      );
-      return fallback;
-    }
-  }
-
-  private async buildReelScript(structuredContent: StructuredTelegramContent): Promise<ReelScript> {
-    const fallback = this.fallbackReelScript(structuredContent);
+  private async buildReelScript(post: RawTelegramPost): Promise<ReelScript> {
+    const fallback = this.fallbackReelScript();
+    const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     try {
       const payload = await this.glmClient.completeJson<RawReelScriptPayload>(
@@ -96,19 +166,40 @@ export class ScriptGenerator {
           {
             role: "system",
             content:
-              "You are an AI director for viral Instagram Reels. Return strict JSON only with keys idea, title, subtitle, visualNotes, aiVideoPrompt, hashtags, scenes. scenes must contain exactly 4 objects with keys hook, setup, escalation, twist. Keep each scene body very short and visual-first. Hook must be strong in first 2 seconds. Twist must be unexpected and end with CTA: 'Full prompts in Telegram'. Total pacing must fit 7-15 seconds with scene changes every 2-3 seconds.",
+                [
+                this.viralMasterPrompt,
+                "",
+                "Дополнительные правила выполнения:",
+                "- Работай независимо от темы исходного Telegram-поста.",
+                "- Не используй темы про HeyGen, AI-аватаров и тест рендера.",
+                "- Не используй кошек/котов/giant cat и похожие cat-motif сюжеты.",
+                "- Верни строгий JSON без markdown и лишнего текста.",
+                "- Допустимые ключи JSON: idea, title, subtitle, visualNotes, aiVideoPrompt, hashtags, scenes.",
+                "- scenes: массив из 4 объектов с key из hook/setup/escalation/twist, плюс title и body.",
+                "- Держи общую длительность около 10 секунд (2/2/3/3).",
+                "- Финал должен заканчиваться CTA: Full prompts in Telegram.",
+              ].join("\n"),
           },
           {
             role: "user",
             content: JSON.stringify(
               {
-                source: structuredContent,
+                triggerPostId: post.id,
+                triggerChannel: post.channel,
+                triggerDate: post.date,
+                variationSeed,
                 constraints: {
-                  format: ["hook", "setup", "escalation", "twist"],
+                  categories: [
+                    "POV",
+                    "alternative reality",
+                    "surreal AI scenes",
+                    "micro-stories with twist",
+                    "visual transformations",
+                  ],
                   ctaText: "Full prompts in Telegram",
                   durationSec: 10,
                   maxBodyLength: 95,
-                  emotionTargets: ["surprise", "curiosity"],
+                  emotionTargets: ["surprise", "shock", "curiosity", "laughter"],
                   visualStyle:
                     "cinematic, high contrast, unusual visuals, fast transitions, vertical 9:16",
                 },
@@ -125,7 +216,7 @@ export class ScriptGenerator {
     } catch (error) {
       this.logger.warn(
         {
-          sourcePostId: structuredContent.sourcePostId,
+          sourcePostId: post.id,
           error: error instanceof Error ? error.message : String(error),
         },
         "Falling back to deterministic Reel script",
@@ -134,102 +225,63 @@ export class ScriptGenerator {
     }
   }
 
-  private fallbackStructuredContent(post: RawTelegramPost): StructuredTelegramContent {
-    const lines = post.text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    const sections: Partial<Record<keyof Omit<StructuredTelegramContent, "sourcePostId" | "rawText">, string[]>> = {};
-    let activeKey: keyof Omit<StructuredTelegramContent, "sourcePostId" | "rawText"> | undefined;
-
-    for (const line of lines) {
-      const match = /^(hook|explanation|prompt|example result|result|example)\s*[:\-]?\s*(.*)$/i.exec(line);
-      if (match) {
-        const key = this.normalizeSectionKey(match[1]);
-        activeKey = key;
-        sections[key] = [];
-        if (match[2]) {
-          sections[key]?.push(match[2].trim());
-        }
-        continue;
-      }
-
-      if (activeKey) {
-        sections[activeKey]?.push(line);
-      }
-    }
-
-    const paragraphs = post.text
-      .split(/\n{2,}/)
-      .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
-      .filter(Boolean);
+  private createStructuredContent(
+    post: RawTelegramPost,
+    reelScript: ReelScript,
+  ): StructuredTelegramContent {
+    const sceneByKey = new Map(reelScript.scenes.map((scene) => [scene.key, scene]));
 
     return {
       sourcePostId: post.id,
-      rawText: post.text,
-      hook: truncate(
-        sections.hook?.join(" ") || paragraphs[0] || lines[0] || "AI changed my content workflow overnight.",
-        140,
-      ),
-      explanation: truncate(
-        sections.explanation?.join(" ") || paragraphs[1] || paragraphs[0] || post.text,
-        260,
-      ),
-      prompt: truncate(
-        sections.prompt?.join(" ") ||
-          paragraphs.find((paragraph) => /prompt/i.test(paragraph)) ||
-          post.text,
-        340,
-      ),
-      exampleResult: truncate(
-        sections.exampleResult?.join(" ") || paragraphs.at(-1) || paragraphs[0] || post.text,
-        260,
-      ),
+      rawText: `Generated from viral master prompt. Trigger post ${post.id}.`,
+      hook: truncate(sceneByKey.get("hook")?.body || reelScript.title, 140),
+      explanation: truncate(sceneByKey.get("setup")?.body || reelScript.subtitle, 260),
+      prompt: truncate(reelScript.aiVideoPrompt, 340),
+      exampleResult: truncate(sceneByKey.get("twist")?.body || reelScript.idea, 260),
     };
   }
 
-  private fallbackReelScript(structuredContent: StructuredTelegramContent): ReelScript {
+  private fallbackReelScript(): ReelScript {
     const scenes = [
       {
         key: "hook" as const,
         title: "Hook",
-        body: truncate(structuredContent.hook, 95),
+        body: "POV: ты проснулся, а время во всем мире идет назад.",
         durationSec: sceneDurations.hook,
       },
       {
         key: "setup" as const,
         title: "Setup",
-        body: truncate(structuredContent.explanation, 95),
+        body: "Люди движутся в реверсе, машины едут задом, небо мерцает.",
         durationSec: sceneDurations.setup,
       },
       {
         key: "escalation" as const,
         title: "Escalation",
-        body: truncate(`Then this prompt flips the outcome: ${structuredContent.prompt}`, 95),
+        body: "Герой пытается закричать, но звук появляется раньше движения губ.",
         durationSec: sceneDurations.escalation,
       },
       {
         key: "twist" as const,
         title: "Twist",
-        body: truncate(`${structuredContent.exampleResult} Full prompts in Telegram.`, 95),
+        body: "Часы замирают, и голос за кадром: Full prompts in Telegram.",
         durationSec: sceneDurations.twist,
       },
     ];
 
     return {
-      idea: "POV: one AI prompt turns chaos into viral content.",
-      title: truncate(structuredContent.hook, 80),
-      subtitle: "Viral AI micro-story in 10s",
+      idea: "POV: мир внезапно начал жить в обратном времени.",
+      title: "POV: мир пошел назад",
+      subtitle: "Визуальный твист за 10 секунд",
       ctaText: "Full prompts in Telegram",
       visualNotes: "Fast cuts every 2-3 seconds, high contrast, cinematic movement.",
       aiVideoPrompt: truncate(
         [
           "Vertical cinematic short video, 9:16, total 10 seconds.",
-          "Scene 1 (0-2s): unusual hook visual related to AI and creators.",
-          "Scene 2 (2-4s): setup with creator struggling in modern workspace.",
-          "Scene 3 (4-7s): escalation with surreal AI transformation and fast camera movement.",
-          "Scene 4 (7-10s): unexpected twist with clear Telegram CTA gesture.",
+          "Scene 1 (0-2s): person wakes up and sees impossible sky behavior.",
+          "Scene 2 (2-4s): city life moving in reverse with surreal details.",
+          "Scene 3 (4-7s): tension rise through impossible physics and reactions.",
+          "Scene 4 (7-10s): unexpected twist ending with clear Telegram CTA.",
           "Dramatic lighting, social-media pacing, high detail, no logos.",
         ].join(" "),
         700,
@@ -295,24 +347,19 @@ export class ScriptGenerator {
       scenes,
     };
   }
+}
 
-  private normalizeSectionKey(
-    value: string,
-  ): keyof Omit<StructuredTelegramContent, "sourcePostId" | "rawText"> {
-    if (/example result|result|example/i.test(value)) {
-      return "exampleResult";
-    }
-
-    if (/hook/i.test(value)) {
-      return "hook";
-    }
-
-    if (/prompt/i.test(value)) {
-      return "prompt";
-    }
-
-    return "explanation";
+function normalizeMasterPrompt(value?: string): string {
+  if (!value?.trim()) {
+    return defaultViralMasterPrompt;
   }
+
+  const normalized = value
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n/g, "\n")
+    .trim();
+
+  return normalized || defaultViralMasterPrompt;
 }
 
 function normalizeHashtagList(value: unknown, fallback: string[]): string[] {
@@ -321,6 +368,11 @@ function normalizeHashtagList(value: unknown, fallback: string[]): string[] {
   }
 
   if (typeof value === "string") {
+    const hashMatches = value.match(/#[\p{L}\p{N}_]+/gu);
+    if (hashMatches?.length) {
+      return hashMatches;
+    }
+
     return value.split(/[,\s]+/).map((item) => item.trim()).filter(Boolean);
   }
 

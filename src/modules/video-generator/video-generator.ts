@@ -83,11 +83,6 @@ export class VideoGenerator {
       this.config.reel.width,
       this.config.reel.height,
       this.config.reel.fps,
-      {
-        topTitle: reelScript.title,
-        bottomText: reelScript.ctaText,
-        durationSec: reelScript.totalDurationSec,
-      },
     );
     await this.ffmpegRenderer.extractThumbnail(videoPath, thumbnailPath);
 

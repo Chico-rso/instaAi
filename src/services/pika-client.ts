@@ -54,12 +54,17 @@ export class PikaClient {
       throw new Error(`Pika queue did not return request_id: ${JSON.stringify(submitted)}`);
     }
 
+    const statusUrl = extractEndpointUrl(submitted, ["status_url", "statusUrl"]);
+    const responseUrl = extractEndpointUrl(submitted, ["response_url", "responseUrl"]);
+
     const deadline = Date.now() + this.config.pollTimeoutMs;
     while (Date.now() < deadline) {
-      const statusPayload = await this.requestJson<Record<string, unknown>>(
-        "GET",
-        `/requests/${encodeURIComponent(requestId)}/status`,
-      );
+      const statusPayload = statusUrl
+        ? await this.requestJsonUrl<Record<string, unknown>>("GET", statusUrl)
+        : await this.requestJson<Record<string, unknown>>(
+          "GET",
+          `/requests/${encodeURIComponent(requestId)}/status`,
+        );
       const status = readStatus(statusPayload);
 
       if (isCompletedStatus(status)) {
@@ -75,10 +80,12 @@ export class PikaClient {
       await sleep(this.config.pollIntervalMs);
     }
 
-    const completed = await this.requestJson<Record<string, unknown>>(
-      "GET",
-      `/requests/${encodeURIComponent(requestId)}`,
-    );
+    const completed = responseUrl
+      ? await this.requestJsonUrl<Record<string, unknown>>("GET", responseUrl)
+      : await this.requestJson<Record<string, unknown>>(
+        "GET",
+        `/requests/${encodeURIComponent(requestId)}`,
+      );
     const finalVideoUrl = extractVideoUrl(completed);
     if (!finalVideoUrl) {
       throw new Error(`Pika request ${requestId} completed without a video URL.`);
@@ -104,9 +111,20 @@ export class PikaClient {
     path: string,
     body?: unknown,
   ): Promise<T> {
+    return this.requestJsonUrl<T>(
+      method,
+      `${this.config.baseUrl}/${this.config.model}${path}`,
+      body,
+    );
+  }
+
+  private async requestJsonUrl<T>(
+    method: "GET" | "POST",
+    endpoint: string,
+    body?: unknown,
+  ): Promise<T> {
     return withRetry(
       async () => {
-        const endpoint = `${this.config.baseUrl}/${this.config.model}${path}`;
         const response = await fetch(endpoint, {
           method,
           headers: {
@@ -151,6 +169,20 @@ export class PikaClient {
       },
     );
   }
+}
+
+function extractEndpointUrl(
+  payload: Record<string, unknown>,
+  keys: string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === "string" && /^https?:\/\//i.test(value)) {
+      return value;
+    }
+  }
+
+  return undefined;
 }
 
 function extractRequestId(payload: Record<string, unknown>): string | undefined {
