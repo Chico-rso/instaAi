@@ -133,6 +133,87 @@ const sceneDurations: Record<ReelSceneKey, number> = {
   twist: 3,
 };
 
+interface FallbackScenario {
+  idea: string;
+  title: string;
+  subtitle: string;
+  visualNotes: string;
+  hook: string;
+  setup: string;
+  escalation: string;
+  twist: string;
+  hashtags: string[];
+}
+
+const fallbackScenarios: FallbackScenario[] = [
+  {
+    idea: "POV: город просыпается, а гравитация внезапно стала слабее.",
+    title: "POV: гравитация сбоит",
+    subtitle: "Обычное утро с одним невозможным багом",
+    visualNotes: "Street-level realism, handheld camera, natural daylight, subtle levitation.",
+    hook: "Кофе зависает в воздухе, когда герой открывает дверь подъезда.",
+    setup: "На улице пакеты и листья медленно плывут вверх на уровне глаз.",
+    escalation: "Герой прыгает через лужу и зависает на секунду дольше обычного.",
+    twist: "Светофор мигает: «Стабилизация... Full prompts in Telegram.»",
+    hashtags: ["#ai", "#reels", "#viral", "#pov", "#scifi", "#cinematic"],
+  },
+  {
+    idea: "POV: в метро появляется портал в этот же вагон через 10 секунд.",
+    title: "POV: петля в метро",
+    subtitle: "Микро-история с временным сдвигом",
+    visualNotes: "Underground train realism, cinematic contrast, one clean temporal glitch.",
+    hook: "В окне вагона герой видит себя, который машет из будущего.",
+    setup: "Двери открываются, и в соседний вагон заходит тот же герой.",
+    escalation: "Оба одновременно тянутся к одному и тому же поручню.",
+    twist: "Будущий герой шепчет: «Не выходи. Full prompts in Telegram.»",
+    hashtags: ["#ai", "#reels", "#viral", "#timeloop", "#pov", "#story"],
+  },
+  {
+    idea: "POV: умные билборды начинают предсказывать твои действия за секунду.",
+    title: "POV: реклама знает всё",
+    subtitle: "Реализм мегаполиса и один тревожный элемент",
+    visualNotes: "Night city realism, neon reflections, predictive billboards, clean composition.",
+    hook: "Билборд показывает, как герой сейчас повернет, до его движения.",
+    setup: "Каждый следующий экран на улице дублирует его маршрут заранее.",
+    escalation: "Экран в витрине выводит точную фразу, которую герой только подумал.",
+    twist: "Последний билборд: «Ты досмотрел. Full prompts in Telegram.»",
+    hashtags: ["#ai", "#reels", "#viral", "#future", "#urban", "#pov"],
+  },
+  {
+    idea: "POV: в офисе время идёт нормально только внутри одного кабинета.",
+    title: "POV: комната вне времени",
+    subtitle: "Одна локация, нарастающее напряжение",
+    visualNotes: "Corporate realism, glass reflections, controlled lighting, time distortion in one room.",
+    hook: "За стеклом люди двигаются как в ускоренной съемке, а в кабинете тишина.",
+    setup: "Герой выходит в коридор и мгновенно слышит хаос дедлайнов.",
+    escalation: "Он возвращается в кабинет, и звук снова исчезает полностью.",
+    twist: "На экране ноутбука таймер: «00:00 Full prompts in Telegram.»",
+    hashtags: ["#ai", "#reels", "#viral", "#office", "#twist", "#microstory"],
+  },
+  {
+    idea: "POV: в магазине все ценники меняются по твоему взгляду.",
+    title: "POV: динамические цены",
+    subtitle: "Социальный тревожный сюжет за 10 секунд",
+    visualNotes: "Supermarket realism, steadycam, subtle UI-like numbers on price tags.",
+    hook: "Герой смотрит на полку, и цена мгновенно удваивается.",
+    setup: "Он переводит взгляд на другой товар, и там цена падает вдвое.",
+    escalation: "Камера ловит, как у соседнего покупателя ценник другой на тот же товар.",
+    twist: "Касса печатает чек: «Тест завершен. Full prompts in Telegram.»",
+    hashtags: ["#ai", "#reels", "#viral", "#social", "#pov", "#future"],
+  },
+  {
+    idea: "POV: в обычном дворе появляется дрон-почтальон из 2036 года.",
+    title: "POV: посылка из 2036",
+    subtitle: "Реалистичный двор и лёгкая фантастика",
+    visualNotes: "Residential courtyard realism, golden hour, one autonomous drone element.",
+    hook: "Дрон зависает перед героем и сканирует его лицо.",
+    setup: "Он сбрасывает коробку с датой отправки «2036».",
+    escalation: "Внутри лежит телефон с уже открытым видео этого же момента.",
+    twist: "На экране подпись: «Не пересматривай. Full prompts in Telegram.»",
+    hashtags: ["#ai", "#reels", "#viral", "#drone", "#pov", "#storytime"],
+  },
+];
+
 export class ScriptGenerator {
   private readonly viralMasterPrompt: string;
 
@@ -165,7 +246,7 @@ export class ScriptGenerator {
       recentExamples?: string[];
     },
   ): Promise<ReelScript> {
-    const fallback = this.fallbackReelScript();
+    const fallback = this.fallbackReelScript(post);
     const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const recentExamples = (options?.recentExamples || [])
       .map((value) => value.trim())
@@ -257,52 +338,53 @@ export class ScriptGenerator {
     };
   }
 
-  private fallbackReelScript(): ReelScript {
+  private fallbackReelScript(post: RawTelegramPost): ReelScript {
+    const scenario = selectFallbackScenario(post);
     const scenes = [
       {
         key: "hook" as const,
         title: "Hook",
-        body: "POV: ты проснулся, а время во всем мире идет назад.",
+        body: scenario.hook,
         durationSec: sceneDurations.hook,
       },
       {
         key: "setup" as const,
         title: "Setup",
-        body: "Люди движутся в реверсе, машины едут задом, небо мерцает.",
+        body: scenario.setup,
         durationSec: sceneDurations.setup,
       },
       {
         key: "escalation" as const,
         title: "Escalation",
-        body: "Герой пытается закричать, но звук появляется раньше движения губ.",
+        body: scenario.escalation,
         durationSec: sceneDurations.escalation,
       },
       {
         key: "twist" as const,
         title: "Twist",
-        body: "Часы замирают, и голос за кадром: Full prompts in Telegram.",
+        body: scenario.twist,
         durationSec: sceneDurations.twist,
       },
     ];
 
     return {
-      idea: "POV: мир внезапно начал жить в обратном времени.",
-      title: "POV: мир пошел назад",
-      subtitle: "Визуальный твист за 10 секунд",
+      idea: scenario.idea,
+      title: scenario.title,
+      subtitle: scenario.subtitle,
       ctaText: "Full prompts in Telegram",
-      visualNotes: "Fast cuts every 2-3 seconds, high contrast, cinematic movement.",
+      visualNotes: scenario.visualNotes,
       aiVideoPrompt: truncate(
         [
           "Vertical cinematic short video, 9:16, total 10 seconds.",
-          "Scene 1 (0-2s): person wakes up and sees impossible sky behavior.",
-          "Scene 2 (2-4s): city life moving in reverse with surreal details.",
-          "Scene 3 (4-7s): tension rise through impossible physics and reactions.",
-          "Scene 4 (7-10s): unexpected twist ending with clear Telegram CTA.",
-          "Dramatic lighting, social-media pacing, high detail, no logos.",
+          `Scene 1 (0-2s): ${scenario.hook}`,
+          `Scene 2 (2-4s): ${scenario.setup}`,
+          `Scene 3 (4-7s): ${scenario.escalation}`,
+          `Scene 4 (7-10s): ${scenario.twist}`,
+          "Photorealistic cinematic style, coherent motion, social-media pacing, no logos.",
         ].join(" "),
         700,
       ),
-      hashtags: ["#ai", "#reels", "#viral", "#pov", "#contentcreator", "#automation"],
+      hashtags: scenario.hashtags,
       totalDurationSec: scenes.reduce((total, scene) => total + scene.durationSec, 0),
       scenes,
     };
@@ -412,11 +494,40 @@ function buildGroundedVideoPrompt(
       "Grounded realism with exactly one subtle sci-fi element.",
       "Single clear protagonist, coherent location, logical continuity between scenes.",
       "No surreal chaos, no cartoon style, no abstract symbolism.",
-      "No animals, no cats, no text overlay, no logo, no watermark, no frame-in-frame.",
+      "No text overlay, no logo, no watermark, no frame-in-frame.",
       `Core idea: ${idea}.`,
       `Visual direction: ${visualNotes}.`,
       timeline,
     ].join(" "),
     700,
   );
+}
+
+function selectFallbackScenario(post: RawTelegramPost): FallbackScenario {
+  const variantNumber = extractVariantNumber(post.id) ?? extractVariantNumber(post.text);
+  if (typeof variantNumber === "number" && Number.isFinite(variantNumber) && variantNumber > 0) {
+    return fallbackScenarios[(variantNumber - 1) % fallbackScenarios.length];
+  }
+
+  const hash = hashString(post.id);
+  return fallbackScenarios[hash % fallbackScenarios.length];
+}
+
+function extractVariantNumber(value: string): number | undefined {
+  const match = value.match(/variant-(\d+)|вариант\s*(\d+)/i);
+  if (!match) {
+    return undefined;
+  }
+
+  const parsed = Number(match[1] || match[2]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
+  }
+
+  return Math.abs(hash);
 }

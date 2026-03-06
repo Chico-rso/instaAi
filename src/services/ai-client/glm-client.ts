@@ -15,6 +15,8 @@ interface GlmResponse {
   }>;
 }
 
+const GLM_REQUEST_TIMEOUT_MS = 20_000;
+
 class HttpError extends Error {
   constructor(
     message: string,
@@ -78,6 +80,7 @@ export class GlmClient {
             "Content-Type": "application/json",
             Authorization: `Bearer ${this.config.apiKey}`,
           },
+          signal: AbortSignal.timeout(GLM_REQUEST_TIMEOUT_MS),
           body: JSON.stringify(payload),
         });
 
@@ -93,6 +96,10 @@ export class GlmClient {
         minDelayMs: 1_000,
         maxDelayMs: 10_000,
         shouldRetry: (error) => {
+          if (isTimeoutError(error)) {
+            return false;
+          }
+
           if (error instanceof HttpError) {
             return error.status === 429 || error.status >= 500;
           }
@@ -112,4 +119,12 @@ export class GlmClient {
       },
     );
   }
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.name === "TimeoutError" || error.name === "AbortError";
 }
